@@ -31,12 +31,14 @@ def search_products(
     ncm: str | None = None,
     category: str | None = None,
     q: str | None = None,
+    sort: str | None = None,
     limit: int = settings.max_page_size,
     offset: int = 0,
     db: DbSession = Depends(get_public_db),
 ):
     """Busca por identificador (codigo de barras/GTIN/etc), NCM, categoria
-    ou texto livre (nome/marca/fabricante/descricao)."""
+    ou texto livre (nome/marca/fabricante/descricao). `sort=recent` ordena
+    por mais recentemente cadastrado (usado pela pagina inicial)."""
     limit = max(1, min(limit, settings.max_page_size))
     offset = max(0, offset)
 
@@ -59,7 +61,11 @@ def search_products(
         )
 
     total = query.distinct().count()
-    products = query.distinct().order_by(Product.id).offset(offset).limit(limit).all()
+    # Product.id como desempate: sem isso, paginacao por offset fica
+    # instavel quando varios produtos tem o mesmo created_at (ex: import
+    # em lote, onde tudo entra com o mesmo timestamp).
+    order = (Product.created_at.desc(), Product.id) if sort == "recent" else (Product.id,)
+    products = query.distinct().order_by(*order).offset(offset).limit(limit).all()
 
     return ProductList(
         items=[ProductOut.model_validate(p) for p in products],

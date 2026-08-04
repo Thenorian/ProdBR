@@ -1,3 +1,9 @@
+from datetime import datetime
+
+from app.database import PublicSession
+from app.models_public import Product
+
+
 def make_product_payload(**overrides):
     payload = {
         "name": "Cerveja em garrafa de vidro, 600ml",
@@ -120,6 +126,37 @@ def test_search_page_size_is_capped(client, trusted_headers):
     assert body["total"] == 12
     assert body["limit"] == 10
     assert len(body["items"]) == 10
+
+
+def test_recent_sort_pagination_is_stable_with_tied_created_at(client, trusted_headers):
+    """Import em lote grava tudo com o mesmo created_at - paginacao por
+    offset precisa de um desempate estavel (Product.id) pra nao pular ou
+    repetir produtos entre paginas."""
+    ids = []
+    for i in range(15):
+        res = client.post(
+            "/products",
+            json=make_product_payload(name=f"Produto Recente {i}"),
+            headers=trusted_headers,
+        )
+        ids.append(res.json()["id"])
+
+    db = PublicSession()
+    try:
+        db.query(Product).filter(Product.id.in_(ids)).update(
+            {"created_at": datetime(2026, 1, 1)}, synchronize_session=False
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    seen = []
+    for offset in (0, 10):
+        res = client.get("/products", params={"sort": "recent", "limit": 10, "offset": offset})
+        seen.extend(item["id"] for item in res.json()["items"])
+
+    assert len(seen) == len(set(seen)), "paginacao repetiu produtos entre paginas"
+    assert set(ids) <= set(seen), "paginacao pulou produtos"
 
 
 def test_get_product_not_found(client):

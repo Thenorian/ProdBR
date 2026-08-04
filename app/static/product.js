@@ -1,6 +1,17 @@
 const root = document.getElementById("product-root");
 const productId = window.PRODUCT_ID;
 
+const IDENTIFIER_TYPES = [
+  ["gtin13", "GTIN-13"],
+  ["gtin8", "GTIN-8"],
+  ["gtin12", "GTIN-12"],
+  ["gtin14", "GTIN-14"],
+  ["upc", "UPC"],
+  ["ean", "EAN"],
+  ["manufacturer_code", "Código do fabricante"],
+  ["other", "Outro"],
+];
+
 async function loadProduct() {
   try {
     const [productRes, revisionsRes] = await Promise.all([
@@ -20,108 +31,127 @@ async function loadProduct() {
     const fiscalRes = await fetch(`/products/${encodeURIComponent(productId)}/fiscal`);
     if (fiscalRes.ok) fiscal = await fiscalRes.json();
 
+    currentFiscal = fiscal;
+    currentRevisions = revisions;
     render(product, fiscal, revisions);
   } catch (err) {
     root.innerHTML = `<p class="error">Erro ao carregar: ${err.message}</p>`;
   }
 }
 
-function leadParagraph(p, fiscal) {
-  const bits = [];
-  if (p.brand) bits.push(`da marca <strong>${escapeHtml(p.brand)}</strong>`);
-  if (p.manufacturer) bits.push(`fabricado por <strong>${escapeHtml(p.manufacturer)}</strong>`);
-  const originSentence = bits.length ? ` é um produto ${bits.join(", ")}` : " é um produto";
-
-  let classification = `classificado no NCM <strong>${escapeHtml(p.ncm)}</strong>`;
-  if (p.cest) classification += ` (CEST ${escapeHtml(p.cest)})`;
-  if (p.category) classification += `, na categoria <em>${escapeHtml(p.category)}</em>`;
-
-  const idCount = p.identifiers.length;
-  const idSentence = idCount
-    ? `Possui ${idCount} identificador${idCount > 1 ? "es" : ""} cadastrado${idCount > 1 ? "s" : ""}: ${p.identifiers.map((i) => `<code>${escapeHtml(i.value)}</code>`).join(", ")}.`
-    : `Ainda não possui nenhum identificador (código de barras/GTIN) cadastrado.`;
-
-  const fiscalSentence = fiscal
-    ? `A alíquota de referência de ICMS é de <strong>${fiscal.icms_rate != null ? fiscal.icms_rate + "%" : "não informada"}</strong> (${fiscal.uf ? `específica do estado ${fiscal.uf}` : "regra nacional"}), vigente desde ${fiscal.valid_from}.`
-    : `Ainda não há regra fiscal cadastrada para o NCM deste produto.`;
-
+function field(label, name, value, helpKey, extraAttrs = "", full = false) {
   return `
-    <p><strong>${escapeHtml(p.name)}</strong>${originSentence}, ${classification}. Unidade comercial: <strong>${escapeHtml(p.commercial_unit)}</strong>. Fonte do cadastro: <em>${escapeHtml(p.source)}</em>.</p>
-    <p>${idSentence}</p>
-    <p>${fiscalSentence}</p>
-    ${p.description ? `<p>${escapeHtml(p.description)}</p>` : ""}
-  `;
+    <div class="form-group${full ? " full" : ""}">
+      <label>${label}${helpKey ? helpIcon(helpKey) : ""}</label>
+      <input name="${name}" value="${escapeHtml(value ?? "")}" ${extraAttrs} />
+    </div>`;
 }
 
-function infoboxHtml(p, fiscal) {
-  const rows = [
-    ["Nome", escapeHtml(p.name)],
-    ["Marca", p.brand ? escapeHtml(p.brand) : "—"],
-    ["Fabricante", p.manufacturer ? escapeHtml(p.manufacturer) : "—"],
-    ["NCM", escapeHtml(p.ncm)],
-    ["CEST", p.cest ? escapeHtml(p.cest) : "—"],
-    ["Categoria", p.category ? escapeHtml(p.category) : "—"],
-    ["Unidade", escapeHtml(p.commercial_unit)],
-    [
-      "Identificadores",
-      p.identifiers.length
-        ? `<div class="identifier-list">${p.identifiers.map((i) => `<span>${escapeHtml(i.type)}: <code>${escapeHtml(i.value)}</code></span>`).join("")}</div>`
-        : "nenhum",
-    ],
-    ["Fonte", escapeHtml(p.source)],
-    ["ID interno", `<code>${escapeHtml(p.id)}</code>`],
-  ];
-
-  const fiscalRows = fiscal
-    ? [
-        ["Escopo", fiscal.uf ? `UF ${escapeHtml(fiscal.uf)}` : "Nacional"],
-        ["ICMS", fiscal.icms_rate != null ? `${fiscal.icms_rate}%` : "—"],
-        ["IPI", fiscal.ipi_rate != null ? `${fiscal.ipi_rate}%` : "—"],
-        ["PIS", fiscal.pis_rate != null ? `${fiscal.pis_rate}%` : "—"],
-        ["COFINS", fiscal.cofins_rate != null ? `${fiscal.cofins_rate}%` : "—"],
-        ["CBS", fiscal.cbs_rate != null ? `${fiscal.cbs_rate}%` : "—"],
-        ["IBS", fiscal.ibs_rate != null ? `${fiscal.ibs_rate}%` : "—"],
-        ["Vigência", fiscal.valid_until ? `${fiscal.valid_from} a ${fiscal.valid_until}` : `desde ${fiscal.valid_from}`],
-        ["Fonte fiscal", escapeHtml(fiscal.source)],
-      ]
-    : [["Alíquotas", "sem regra fiscal cadastrada"]];
-
+function identifierRow(i) {
+  const typeLabel = IDENTIFIER_TYPES.find((t) => t[0] === i.type)?.[1] || i.type;
   return `
-    <aside class="infobox">
-      <div class="infobox-header">${escapeHtml(p.name)}</div>
-      <table>${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("")}</table>
-      <div class="infobox-header">Dados fiscais</div>
-      <table>${fiscalRows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("")}</table>
-    </aside>
-  `;
+    <tr data-id-row="${i.id}">
+      <td>${escapeHtml(typeLabel)}</td>
+      <td><code>${escapeHtml(i.value)}</code></td>
+      <td class="edit-only"><button type="button" class="remove-id-btn" data-remove-id="${i.id}">remover</button></td>
+    </tr>`;
+}
+
+function fiscalRows(fiscal) {
+  if (!fiscal) {
+    return `<tr><td colspan="2">Sem regra fiscal cadastrada para este NCM.</td></tr>`;
+  }
+  const rows = [
+    ["Escopo", fiscal.uf ? `Estado ${fiscal.uf}` : "Nacional (padrão)", "uf"],
+    ["Origem", fiscal.origin != null ? fiscal.origin : "—", "origin"],
+    ["ICMS", fiscal.icms_rate != null ? `${fiscal.icms_rate}%` : "—", "icms"],
+    ["IPI", fiscal.ipi_rate != null ? `${fiscal.ipi_rate}%` : "—", "ipi"],
+    ["PIS", fiscal.pis_rate != null ? `${fiscal.pis_rate}%` : "—", "pis"],
+    ["COFINS", fiscal.cofins_rate != null ? `${fiscal.cofins_rate}%` : "—", "cofins"],
+    ["CBS", fiscal.cbs_rate != null ? `${fiscal.cbs_rate}%` : "—", "cbs"],
+    ["IBS", fiscal.ibs_rate != null ? `${fiscal.ibs_rate}%` : "—", "ibs"],
+    ["Vigência", fiscal.valid_until ? `${fiscal.valid_from} a ${fiscal.valid_until}` : `desde ${fiscal.valid_from}`, null],
+    ["Fonte", escapeHtml(fiscal.source), null],
+  ];
+  return rows
+    .map(([k, v, help]) => `<tr><th>${k}${help ? helpIcon(help) : ""}</th><td>${v}</td></tr>`)
+    .join("");
 }
 
 function render(product, fiscal, revisions) {
   root.innerHTML = `
     <div class="article-header">
       <h1>${escapeHtml(product.name)}</h1>
-      <div class="article-subtitle">cadastrado ${timeAgo(product.created_at)} · atualizado ${timeAgo(product.updated_at)}</div>
+      <div class="article-subtitle">${escapeHtml(product.id)} · cadastrado ${timeAgo(product.created_at)} · atualizado ${timeAgo(product.updated_at)}</div>
     </div>
 
     <div class="tab-bar">
-      <button class="tab-btn active" data-tab="article">Artigo</button>
+      <button class="tab-btn active" data-tab="article">Ficha do produto</button>
       <button class="tab-btn" data-tab="history">Histórico</button>
-      <button class="tab-btn" data-tab="edit">Editar</button>
     </div>
 
     <div class="tab-panel active" id="tab-article">
-      <div class="article-body">
-        <div class="article-lead">${leadParagraph(product, fiscal)}</div>
-        ${infoboxHtml(product, fiscal)}
+      <div class="product-form-wrap" id="product-form-wrap">
+        <div class="product-form">
+          <div class="product-form-header">
+            <h2>Ficha do produto</h2>
+            <button type="button" id="edit-toggle" class="btn btn-outline btn-sm view-only">✎ Editar</button>
+          </div>
+
+          <form id="product-form">
+            <fieldset id="product-fieldset" disabled>
+              <div class="form-grid">
+                ${field("Nome", "name", product.name, null, "", true)}
+                ${field("Marca", "brand", product.brand)}
+                ${field("Fabricante", "manufacturer", product.manufacturer)}
+                ${field("NCM", "ncm", product.ncm, "ncm", 'maxlength="8"')}
+                ${field("CEST", "cest", product.cest, "cest", 'maxlength="7"')}
+                <div class="form-group">
+                  <label>Categoria</label>
+                  <input name="category" value="${escapeHtml(product.category ?? "")}" list="category-suggestions" />
+                </div>
+                ${field("Unidade comercial", "commercial_unit", product.commercial_unit)}
+                <div class="form-group full">
+                  <label>Descrição</label>
+                  <textarea name="description">${escapeHtml(product.description ?? "")}</textarea>
+                </div>
+                ${field("Fonte", "source", product.source, null, "", true)}
+              </div>
+            </fieldset>
+
+            <h3 class="section-title">Identificadores${helpIcon("gtin")}</h3>
+            <table class="id-table">
+              <thead><tr><th>Tipo</th><th>Código</th><th class="edit-only"></th></tr></thead>
+              <tbody id="id-rows">
+                ${product.identifiers.length ? product.identifiers.map(identifierRow).join("") : '<tr><td colspan="3" class="view-only">nenhum cadastrado</td></tr>'}
+              </tbody>
+            </table>
+            <div class="add-identifier-row edit-only">
+              <select id="new-id-type">${IDENTIFIER_TYPES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>
+              <input id="new-id-value" placeholder="Código" />
+              <button type="button" id="add-identifier-btn" class="btn btn-sm btn-outline">+ Adicionar</button>
+            </div>
+
+            <h3 class="section-title">Dados fiscais${helpIcon("ncm")}</h3>
+            <table class="fiscal-table">${fiscalRows(fiscal)}</table>
+            <p class="form-hint">Regras fiscais são compartilhadas por NCM e editadas via API separadamente (não aqui, na ficha do produto).</p>
+
+            <div class="edit-only form-group full" style="margin-top:1rem;">
+              <label>Motivo da alteração *</label>
+              <input name="reason" id="edit-reason" placeholder="Por que você está mudando isso?" />
+            </div>
+            <div class="edit-only form-actions">
+              <button type="submit" class="btn">Salvar alterações</button>
+              <button type="button" id="cancel-edit" class="btn btn-outline">Cancelar</button>
+            </div>
+          </form>
+          <div class="form-message" id="edit-message" hidden></div>
+        </div>
       </div>
     </div>
 
     <div class="tab-panel" id="tab-history">
       <div class="history-list">${renderHistory(revisions)}</div>
-    </div>
-
-    <div class="tab-panel" id="tab-edit">
-      <div id="contribute-box"></div>
     </div>
   `;
 
@@ -129,7 +159,7 @@ function render(product, fiscal, revisions) {
     btn.addEventListener("click", () => activateTab(btn.dataset.tab));
   });
 
-  renderContributeBox();
+  wireEditing(product);
 
   const initialTab = new URLSearchParams(window.location.search).get("tab");
   if (initialTab) activateTab(initialTab);
@@ -163,71 +193,86 @@ function renderHistory(revisions) {
     .join("");
 }
 
-function renderContributeBox() {
-  const box = document.getElementById("contribute-box");
+function wireEditing(product) {
+  const wrap = document.getElementById("product-form-wrap");
+  const fieldset = document.getElementById("product-fieldset");
+  const toggleBtn = document.getElementById("edit-toggle");
+  const cancelBtn = document.getElementById("cancel-edit");
+  const form = document.getElementById("product-form");
+  const messageEl = document.getElementById("edit-message");
+
   if (!isLoggedIn()) {
-    box.innerHTML = `<p class="form-hint"><a href="/login">Entre</a> para editar este produto ou adicionar um identificador.</p>`;
-    return;
+    toggleBtn.replaceWith(document.createTextNode(""));
+    const hint = document.createElement("p");
+    hint.className = "form-hint view-only";
+    hint.innerHTML = '<a href="/login">Entre</a> para editar este produto.';
+    wrap.querySelector(".product-form-header").appendChild(hint);
+  } else {
+    toggleBtn.addEventListener("click", () => setEditing(true));
+    cancelBtn.addEventListener("click", () => {
+      setEditing(false);
+      render(product, currentFiscal, currentRevisions); // reset any unsaved changes
+    });
   }
 
-  box.innerHTML = `
-    <h2 class="section-title">Editar produto</h2>
-    <form id="edit-form" class="form-card wide">
-      <div class="form-grid">
-        <div class="form-group"><label>Nome</label><input name="name" /></div>
-        <div class="form-group"><label>Marca</label><input name="brand" /></div>
-        <div class="form-group"><label>Categoria</label><input name="category" /></div>
-        <div class="form-group"><label>Fabricante</label><input name="manufacturer" /></div>
-        <div class="form-group full"><label>Motivo da alteração *</label><input name="reason" required /></div>
-      </div>
-      <div class="form-actions"><button type="submit" class="btn">Enviar contribuição</button></div>
-      <div class="form-message" id="edit-message" hidden></div>
-    </form>
+  function setEditing(on) {
+    fieldset.disabled = !on;
+    wrap.classList.toggle("is-editing", on);
+  }
 
-    <h2 class="section-title">Adicionar identificador</h2>
-    <form id="identifier-form" class="form-card wide">
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Tipo</label>
-          <select name="type">
-            <option value="gtin13">GTIN-13</option>
-            <option value="gtin8">GTIN-8</option>
-            <option value="gtin12">GTIN-12</option>
-            <option value="gtin14">GTIN-14</option>
-            <option value="upc">UPC</option>
-            <option value="ean">EAN</option>
-            <option value="manufacturer_code">Código do fabricante</option>
-            <option value="other">Outro</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Código</label><input name="value" required /></div>
-        <div class="form-group full"><label>Motivo *</label><input name="reason" required value="Identificador adicional" /></div>
-      </div>
-      <div class="form-actions"><button type="submit" class="btn">Enviar contribuição</button></div>
-      <div class="form-message" id="identifier-message" hidden></div>
-    </form>
-  `;
-
-  document.getElementById("edit-form").addEventListener("submit", async (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.target).entries());
-    const payload = { reason: data.reason };
-    for (const key of ["name", "brand", "category", "manufacturer"]) {
-      if (data[key]) payload[key] = data[key];
+    const reason = document.getElementById("edit-reason").value.trim();
+    if (!reason) {
+      showMessage(messageEl, "error", "Preencha o motivo da alteração.");
+      return;
     }
-    await submitContribution(`/products/${encodeURIComponent(productId)}`, "PUT", payload, "edit-message");
+    const data = Object.fromEntries(new FormData(form).entries());
+    const payload = { reason };
+    for (const key of ["name", "brand", "manufacturer", "ncm", "cest", "category", "commercial_unit", "description", "source"]) {
+      payload[key] = data[key] || null;
+    }
+    await submitContribution(`/products/${encodeURIComponent(productId)}`, "PUT", payload, messageEl);
   });
 
-  document.getElementById("identifier-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.target).entries());
-    const payload = { product_id: productId, type: data.type, value: data.value, reason: data.reason };
-    await submitContribution("/identifiers", "POST", payload, "identifier-message");
+  document.getElementById("add-identifier-btn").addEventListener("click", async () => {
+    const type = document.getElementById("new-id-type").value;
+    const value = document.getElementById("new-id-value").value.trim();
+    const reason = document.getElementById("edit-reason").value.trim() || "Identificador adicional";
+    if (!value) {
+      showMessage(messageEl, "error", "Informe o código do identificador.");
+      return;
+    }
+    await submitContribution("/identifiers", "POST", { product_id: productId, type, value, reason }, messageEl);
   });
+
+  root.querySelectorAll("[data-remove-id]").forEach((btn) => {
+    btn.addEventListener("click", () => startRemoveIdentifier(btn));
+  });
+
+  function startRemoveIdentifier(btn) {
+    const row = btn.closest("tr");
+    const idId = btn.dataset.removeId;
+    const cell = btn.closest("td");
+    cell.innerHTML = `
+      <div class="inline-remove-form">
+        <input type="text" placeholder="motivo" class="remove-reason-input" />
+        <button type="button" class="confirm-remove-btn">confirmar</button>
+        <button type="button" class="cancel-remove-btn">cancelar</button>
+      </div>`;
+    cell.querySelector(".cancel-remove-btn").addEventListener("click", () => render(product, currentFiscal, currentRevisions));
+    cell.querySelector(".confirm-remove-btn").addEventListener("click", async () => {
+      const reason = cell.querySelector(".remove-reason-input").value.trim() || "Identificador removido";
+      await submitContribution(`/identifiers/${idId}`, "DELETE", { reason }, messageEl);
+    });
+  }
 }
 
-async function submitContribution(url, method, payload, messageId) {
-  const messageEl = document.getElementById(messageId);
+let currentFiscal = null;
+let currentRevisions = [];
+
+async function submitContribution(url, method, payload, messageEl) {
+  showMessage(messageEl, null, "");
   messageEl.hidden = true;
   try {
     const res = await authFetch(url, {
@@ -250,6 +295,7 @@ async function submitContribution(url, method, payload, messageId) {
 }
 
 function showMessage(el, kind, text) {
+  if (!kind) return;
   el.hidden = false;
   el.className = `form-message ${kind}`;
   el.textContent = text;

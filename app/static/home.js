@@ -51,6 +51,48 @@ function renderResults(items) {
     .join("");
 }
 
+const portalEl = document.getElementById("portal");
+
+async function loadRecentPortal() {
+  try {
+    const pages = await Promise.all(
+      [0, 10, 20, 30, 40].map((offset) =>
+        fetch(`/products?sort=recent&limit=10&offset=${offset}`).then((r) => (r.ok ? r.json() : { items: [] }))
+      )
+    );
+    const products = pages.flatMap((p) => p.items);
+    renderPortal(products);
+  } catch (err) {
+    portalEl.innerHTML = `<p class="error">Erro ao carregar produtos recentes: ${err.message}</p>`;
+  }
+}
+
+function renderPortal(products) {
+  if (!products.length) {
+    portalEl.innerHTML = '<p class="empty">Nenhum produto cadastrado ainda. <a href="/new">Seja o primeiro</a>.</p>';
+    return;
+  }
+
+  const sections = new Map();
+  for (const p of products) {
+    const section = (p.category || "Sem categoria").split(">")[0].trim();
+    if (!sections.has(section)) sections.set(section, []);
+    sections.get(section).push(p);
+  }
+
+  portalEl.innerHTML = [...sections.entries()]
+    .map(
+      ([section, items]) => `
+      <div class="portal-section">
+        <h3>${escapeHtml(section)}</h3>
+        <ul>
+          ${items.map((p) => `<li><a href="/view/products/${encodeURIComponent(p.id)}">${escapeHtml(p.name)}</a></li>`).join("")}
+        </ul>
+      </div>`
+    )
+    .join("");
+}
+
 async function loadStats() {
   try {
     const res = await fetch("/stats");
@@ -115,4 +157,5 @@ if (initialQuery) {
 }
 
 loadStats();
+loadRecentPortal();
 loadChanges();

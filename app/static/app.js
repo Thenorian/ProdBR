@@ -88,6 +88,64 @@ function avatarHtml(username) {
   return `<span class="avatar" style="background:${color}">${escapeHtml(letter)}</span>`;
 }
 
+// Glossario de termos tecnicos - usado nos icones de ajuda (help-icon)
+// espalhados pelos formularios (NCM, CEST, GTIN, aliquotas...).
+const GLOSSARY = {
+  gtin: "Código numérico que identifica um produto de forma única — o que está no código de barras. GTIN-13 é o mais comum no Brasil; GTIN-8/12/14 variam só no número de dígitos (embalagens menores/maiores, caixas, paletes).",
+  ncm: "Nomenclatura Comum do Mercosul — código de 8 dígitos que classifica o produto para fins fiscais. Define quais impostos incidem sobre ele.",
+  cest: "Código Especificador da Substituição Tributária — identifica o produto dentro do regime de Substituição Tributária do ICMS. Nem todo produto tem um.",
+  uf: "Sigla do estado. Sem UF definida, a regra vale como padrão nacional — usada quando não há regra específica para o estado consultado.",
+  origin: "Código da tabela de Origem da Mercadoria do ICMS (0 a 8) — indica se o produto é nacional, importado etc.",
+  icms: "Imposto sobre Circulação de Mercadorias e Serviços — principal imposto estadual sobre a venda do produto.",
+  ipi: "Imposto sobre Produtos Industrializados — imposto federal cobrado na saída de produtos industrializados.",
+  pis: "Contribuição federal sobre o faturamento das empresas.",
+  cofins: "Contribuição federal para a seguridade social, também sobre o faturamento.",
+  cbs: "Contribuição sobre Bens e Serviços — novo tributo federal da Reforma Tributária (EC 132/2023), substitui PIS/COFINS/IPI.",
+  ibs: "Imposto sobre Bens e Serviços — novo tributo da Reforma Tributária, substitui ICMS/ISS.",
+};
+
+function helpIcon(key) {
+  const text = GLOSSARY[key];
+  if (!text) return "";
+  return `<span class="help-icon" tabindex="0" data-tip="${escapeHtml(text)}" title="${escapeHtml(text)}">?</span>`;
+}
+
+// Categorias sugeridas (datalist) - cobre as verticais prioritarias do
+// ProdBR, mas o campo aceita qualquer texto digitado, nao e uma lista
+// fechada.
+const CATEGORY_SUGGESTIONS = [
+  "Pet > Ração Cães",
+  "Pet > Ração Gatos",
+  "Pet > Petiscos",
+  "Pet > Acessórios",
+  "Mecânica > Ignição",
+  "Mecânica > Freios",
+  "Mecânica > Suspensão",
+  "Mecânica > Filtros",
+  "Mecânica > Lubrificantes",
+  "Ferragens > Ferramentas Manuais",
+  "Ferragens > Ferramentas Elétricas",
+  "Ferragens > Fixação (Parafusos e Porcas)",
+  "Agropecuária > Defensivos Agrícolas",
+  "Agropecuária > Medicamentos Veterinários",
+  "Agropecuária > Irrigação",
+  "Pesca > Iscas e Anzóis",
+  "Pesca > Carretilhas e Molinetes",
+  "Pesca > Linhas",
+  "Elétrica > Material Elétrico",
+  "Elétrica > Fios e Cabos",
+  "Hidráulica > Conexões",
+  "Hidráulica > Registros e Válvulas",
+];
+
+function injectCategoryDatalist() {
+  if (document.getElementById("category-suggestions")) return;
+  const datalist = document.createElement("datalist");
+  datalist.id = "category-suggestions";
+  datalist.innerHTML = CATEGORY_SUGGESTIONS.map((c) => `<option value="${escapeHtml(c)}">`).join("");
+  document.body.appendChild(datalist);
+}
+
 function actionLabel(action) {
   return { create: "criou", update: "editou", delete: "removeu" }[action] || action;
 }
@@ -138,5 +196,10 @@ function initNav() {
     });
   }
 }
+
+// Roda imediatamente (nao espera DOMContentLoaded) para garantir que o
+// <datalist> ja exista quando os scripts de pagina (que rodam depois,
+// na ordem do documento) montarem seus formularios.
+injectCategoryDatalist();
 
 document.addEventListener("DOMContentLoaded", initNav);

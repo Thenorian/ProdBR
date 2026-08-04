@@ -48,6 +48,10 @@ class ProductOut(ProductBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    # Nullable so de leitura: importacao em lote pode gerar produtos com
+    # NCM pendente de revisao (ver importers/). Escrita via API continua
+    # exigindo NCM normalmente (ProductCreate/ProductUpdate acima).
+    ncm: str | None = Field(None, min_length=8, max_length=8)
     identifiers: list[IdentifierOut] = []
     created_at: datetime
     updated_at: datetime
