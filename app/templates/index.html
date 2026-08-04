@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ProdBR — Cadastro público de produtos</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="hero">
+    <h1>ProdBR</h1>
+    <p>Cadastro público e colaborativo de produtos brasileiros: código de barras, NCM/CEST e alíquotas de referência.</p>
+    <p class="links">
+      <a href="/docs">Documentação da API</a> ·
+      <a href="/changelog">Alterações recentes</a> ·
+      <a href="https://github.com/Thenorian/ProdBR" target="_blank" rel="noopener">GitHub</a> ·
+      <span>Licença GNU GPL v3.0</span>
+    </p>
+  </header>
+
+  <main>
+    <section class="search-box">
+      <input id="query" type="text" placeholder="Buscar por código de barras, NCM ou descrição..." autofocus />
+      <button id="search-btn">Pesquisar</button>
+    </section>
+
+    <section id="results" class="results"></section>
+  </main>
+
+  <footer>
+    <p>Base de dados aberta — qualquer pessoa pode consultar, baixar e contribuir. Nenhuma informação de preço, custo ou fornecedor é armazenada.</p>
+  </footer>
+
+  <script src="/static/search.js"></script>
+</body>
+</html>
