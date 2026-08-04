@@ -468,20 +468,34 @@ code { font-family: ui-monospace, "Courier New", monospace; }
 .product-form-header h2 { margin: 0; font-size: 1.15rem; font-family: var(--serif); font-weight: 400; }
 
 .product-form fieldset { border: none; padding: 0; margin: 0; }
+
+/* Modo travado: sem cara de campo nenhuma - so texto corrido, como um
+   documento. `all: unset` porque inputs/textarea tem estilo nativo do
+   navegador (fundo, borda, padding) que sobrevive a overrides parciais. */
 .product-form fieldset[disabled] input,
 .product-form fieldset[disabled] textarea,
 .product-form fieldset[disabled] select {
-  background: transparent;
-  border-color: transparent;
-  padding-left: 0;
+  all: unset;
+  display: block;
+  width: 100%;
+  font: inherit;
   color: var(--fg);
   cursor: default;
-  -webkit-appearance: none;
+  white-space: pre-wrap;
 }
+.product-form fieldset[disabled] textarea { min-height: 0; }
+
+/* Modo edicao: volta a parecer um campo de formulario de verdade. */
 .product-form fieldset:not([disabled]) input,
 .product-form fieldset:not([disabled]) textarea,
 .product-form fieldset:not([disabled]) select {
+  padding: .5rem .65rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
   background: var(--bg);
+  color: var(--fg);
+  font-size: .92rem;
+  font-family: inherit;
 }
 
 .id-table, .fiscal-table {
