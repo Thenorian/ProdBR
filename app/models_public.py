@@ -26,7 +26,10 @@ class Product(PublicBase):
 
     name: Mapped[str] = mapped_column(String(255))
     brand: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    ncm: Mapped[str] = mapped_column(String(8), index=True)
+    # Nullable no banco (nao na API - ProductCreate/Update exigem NCM):
+    # importacao em lote (ver importers/) pode gerar produtos com NCM
+    # ainda nao mapeado, pendente de revisao manual antes de aplicar.
+    ncm: Mapped[str | None] = mapped_column(String(8), index=True, nullable=True)
     cest: Mapped[str | None] = mapped_column(String(7), nullable=True)
     category: Mapped[str | None] = mapped_column(String(120), nullable=True)
     commercial_unit: Mapped[str] = mapped_column(String(10), default="UN")
