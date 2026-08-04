@@ -1,22 +1,81 @@
 # ProdBR
 
-Cadastro público e colaborativo de produtos brasileiros. Dado um código de
-barras, NCM ou outro identificador único, a API devolve as informações
-fiscais genéricas do produto (NCM, CEST, unidade, alíquotas de referência
-de ICMS, IPI, PIS, COFINS, CBS/IBS).
+Base pública e colaborativa de produtos brasileiros — pensada nos moldes da
+Wikipédia ou do ViaCEP: a Thenorian é a mantenedora inicial, mas qualquer
+pessoa pode consultar, contribuir e até hospedar sua própria instância
+(self-hosted). O objetivo não é só oferecer uma API, e sim construir a
+maior base aberta de identificação de produtos do Brasil — a API é apenas
+uma das formas de acessá-la.
 
-**Não é salvo preço, custo ou fornecedor** — só o que identifica o produto
-e o que ajuda a preencher impostos.
+Dado um código de barras, GTIN ou outro identificador, a base devolve a
+identificação do produto (nome, marca, NCM/CEST, categoria...) e, à parte,
+as regras fiscais de referência (ICMS, IPI, PIS, COFINS, CBS/IBS) por UF e
+vigência. **Não é salvo preço, custo ou fornecedor.**
 
-A ideia é unificar um cenário hoje espalhado e confuso: qualquer sistema
-(inclusive de terceiros) pode consultar e contribuir com cadastros, e a
-base inteira pode ser baixada e usada por qualquer pessoa — como baixar uma
-Wikipédia inteira de produtos.
+## Arquitetura
 
-## Licença
+### Produto e dados fiscais são entidades separadas
 
-[GNU GPL v3.0](LICENSE). Qualquer pessoa pode rodar sua própria instância
-(self-hosted) deste software, sem restrição.
+A legislação tributária muda com frequência e varia por estado — o
+cadastro do produto não pode ficar refém disso. Por isso:
+
+- **Product**: identificação (`prod_xxxxxxxxxxxx`, nome, marca, NCM/CEST
+  "atuais", categoria, fabricante, fonte). Não guarda alíquota nenhuma.
+- **FiscalRule**: alíquotas chaveadas por **NCM + CEST + UF + vigência**,
+  não pelo produto. Dois produtos com o mesmo NCM compartilham a mesma
+  regra automaticamente — é a lei que tributa a classificação fiscal, não
+  o SKU específico. `uf=null` é a regra nacional/default, usada quando não
+  há regra específica para o estado consultado.
+
+### Identificadores flexíveis
+
+Um produto pode ter vários identificadores (GTIN-8/12/13/14, UPC, EAN,
+código do fabricante, outros) — nenhum deles é a chave primária. A chave
+interna do produto é gerada pelo sistema (`prod_...`), o que permite
+cadastrar produtos que ainda não têm código de barras nenhum.
+
+### Toda informação tem fonte
+
+`Product.source` e `FiscalRule.source` registram de onde veio o dado
+(Receita Federal, GS1 Brasil, contribuição da comunidade, documentação do
+fabricante, portal oficial, etc.) — para rastreabilidade e auditoria.
+
+### Nada de arquivos binários
+
+O banco fica só com dados estruturados/textuais — sem imagens, PDFs ou
+qualquer binário. Se um dia for necessário associar imagens, serão só
+referências (URL), nunca o arquivo em si.
+
+### Histórico de revisões, ao estilo Git
+
+Toda alteração vira uma ou mais linhas em `Revision` — uma por campo
+alterado, com usuário responsável, data, valor anterior, novo valor e o
+**motivo da alteração** (campo obrigatório em toda escrita). Consultável
+via `/revisions` e `/products/{id}/revisions`.
+
+### Sistema comunitário separado da base pública
+
+Usuários, chaves de API, sessões e fila de moderação vivem num banco **à
+parte** (`data/community.sqlite3`) que nunca é distribuído. Quando alguém
+baixa a base publica (`/export/*`), recebe só produtos, identificadores,
+regras fiscais e revisões — nenhum dado de autenticação ou moderação.
+
+### Reputação e moderação
+
+Todo cadastro/edição exige conta (chave de API pessoal). Contribuições de
+usuários com reputação abaixo do limite (`AUTO_APPROVE_REPUTATION`, padrão
+20) entram numa fila de moderação (`PendingChange`) em vez de aplicar
+direto; moderadores/admins aprovam ou rejeitam via `/moderation/*`.
+Reputação sobe a cada contribuição aplicada (direta ou aprovada) e cai um
+pouco a cada rejeição.
+
+## Licenciamento
+
+- **Software**: [AGPLv3](LICENSE) — se alguém rodar uma instância
+  modificada como serviço web público, é obrigado a disponibilizar o
+  código-fonte das modificações.
+- **Dados**: [ODbL v1.0](DATA_LICENSE) — licença específica para bancos de
+  dados colaborativos (mesma usada pelo OpenStreetMap).
 
 ## Rodando localmente
 
@@ -31,21 +90,28 @@ cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
-A API sobe em `http://localhost:8000`. A página de pesquisa manual (estilo
-Wikipédia) fica na raiz (`/`), e a documentação interativa (OpenAPI/Swagger)
-em `/docs`.
+A API sobe em `http://localhost:8000`. Página de pesquisa manual em `/`,
+documentação interativa (OpenAPI/Swagger) em `/docs`.
 
-### Criar uma chave de API (para cadastrar/editar produtos)
-
-Consultar é público e não precisa de chave. Criar ou editar produtos exige
-uma chave de API, gerada por linha de comando:
+### Criar uma conta e contribuir
 
 ```bash
-python -m scripts.create_api_key "nome de quem vai usar a chave"
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"seu_user","email":"voce@example.com","password":"senha-forte"}'
 ```
 
-A chave é impressa uma única vez no terminal — o banco guarda só o hash
-(sha256), então não tem como recuperá-la depois, só gerar uma nova.
+A resposta inclui uma chave de API pessoal (`X-API-Key`), mostrada uma
+única vez — é ela que autentica os cadastros/edições.
+
+### Promover o primeiro moderador (bootstrap)
+
+Contas novas nascem com papel `member`. Para promover alguém a moderador
+ou admin (necessário para revisar a fila de moderação):
+
+```bash
+python -m scripts.promote_user <username> moderator
+```
 
 ### Popular com dados de exemplo (opcional)
 
@@ -53,40 +119,51 @@ A chave é impressa uma única vez no terminal — o banco guarda só o hash
 python -m scripts.seed_example
 ```
 
-## Baixar o banco de dados
+## Baixar a base pública
 
-O banco é um único arquivo SQLite (`prodbr.sqlite3`, caminho configurável
-via `DATABASE_URL`). Isso é proposital: qualquer pessoa pode copiar esse
-arquivo e ter a base completa, sem precisar rodar um servidor de banco à
-parte, exatamente como baixar um dump inteiro de uma wiki.
+`GET /export/sqlite`, `/export/sql` ou `/export/csv` — sempre só com
+produtos/identificadores/regras fiscais/revisões, nunca com dados de
+comunidade. O arquivo SQLite é o próprio banco em uso, então também dá
+para copiar `data/public.sqlite3` diretamente.
 
 ## Regras de negócio
 
-- **API pública**: qualquer pessoa pode pesquisar por código de barras,
-  NCM ou outro identificador único, sem autenticação.
-- **Limite de 10 itens por requisição** (`MAX_PAGE_SIZE`), para evitar
-  bots varrendo a base inteira de uma vez. Requisições pedindo mais que
-  isso são limitadas ao teto silenciosamente; use `offset` para paginar.
-- **Proteção contra bots/DDoS**: rate limiting por IP (`RATE_LIMIT_READ`
-  e `RATE_LIMIT_WRITE`, formato slowapi, ex. `60/minute`). Requisições
-  acima do limite recebem `429 Too Many Requests`.
-- **Edição exige chave de API** (header `X-API-Key`). Qualquer alteração
-  fica registrada, com autor (chave) e diff, como um "git log" público —
-  ver `GET /products/{id}/changelog` e `GET /changelog`.
+- **Leitura é pública**, sem autenticação: busca, detalhe, regras fiscais,
+  histórico de revisões, perfil de contribuidor.
+- **Limite de 10 itens por requisição** (`MAX_PAGE_SIZE`) em toda busca ou
+  listagem, para evitar bots varrendo a base inteira de uma vez.
+- **Rate limiting por IP** (`RATE_LIMIT_READ`/`RATE_LIMIT_WRITE`, formato
+  slowapi) como proteção contra bots/DDoS. Acima do limite: `429`.
+- **Escrita exige conta** (chave de API ou sessão de login) e um motivo
+  (`reason`) obrigatório em todo create/update.
+- **Reputação decide se aplica na hora ou vai para moderação** — ver acima.
 
 ## Rotas principais
 
-| Método | Rota                          | Auth | Descrição                                   |
-|--------|--------------------------------|------|----------------------------------------------|
-| GET    | `/products`                    | não  | Busca por `barcode`, `ncm` ou `q` (texto)     |
-| GET    | `/products/{id}`               | não  | Detalhe de um produto                         |
-| POST   | `/products`                    | sim  | Cria um produto                               |
-| PUT    | `/products/{id}`                | sim  | Atualiza campos de um produto                 |
-| GET    | `/products/{id}/changelog`     | não  | Histórico de alterações do produto            |
-| GET    | `/changelog`                   | não  | Últimas alterações em qualquer produto        |
+| Método | Rota                              | Auth  | Descrição                                          |
+|--------|-------------------------------------|-------|-----------------------------------------------------|
+| GET    | `/products`                         | não   | Busca por `identifier`, `ncm`, `category` ou `q`     |
+| GET    | `/products/{id}`                    | não   | Detalhe de um produto                                |
+| POST   | `/products`                         | conta | Cria um produto                                      |
+| PUT    | `/products/{id}`                     | conta | Atualiza campos de um produto                        |
+| POST   | `/identifiers`                      | conta | Anexa um identificador a um produto                  |
+| DELETE | `/identifiers/{id}`                  | conta | Remove um identificador                              |
+| GET    | `/fiscal-rules?ncm=&uf=&date=`      | não   | Resolve a regra fiscal vigente mais específica       |
+| GET    | `/fiscal-rules/history?ncm=`        | não   | Todas as regras já cadastradas para um NCM           |
+| GET    | `/products/{id}/fiscal`             | não   | Regra fiscal resolvida a partir do NCM do produto    |
+| POST   | `/fiscal-rules`                      | conta | Cria uma regra fiscal                                |
+| PUT    | `/fiscal-rules/{id}`                 | conta | Atualiza uma regra fiscal                            |
+| GET    | `/revisions`                        | não   | Histórico global de alterações                       |
+| GET    | `/products/{id}/revisions`           | não   | Histórico de um produto                              |
+| GET    | `/users/{username}`                 | não   | Perfil público (reputação, papel — sem e-mail)        |
+| POST   | `/auth/register`                    | não   | Cria conta + chave de API pessoal                     |
+| POST   | `/auth/login`                       | não   | Login (retorna token de sessão)                       |
+| GET    | `/moderation/queue`                  | mod   | Fila de contribuições pendentes                       |
+| POST   | `/moderation/{id}/approve`           | mod   | Aprova e aplica uma contribuição pendente             |
+| POST   | `/moderation/{id}/reject`            | mod   | Rejeita uma contribuição pendente                     |
+| GET    | `/export/{sqlite,sql,csv}`          | não   | Baixa a base pública completa                         |
 
-A tipagem completa de cada campo (request/response) está documentada
-automaticamente em `/docs` (Swagger) e `/redoc`.
+Tipagem completa de cada rota em `/docs` (Swagger) e `/redoc`.
 
 ## Testes
 
@@ -96,7 +173,8 @@ pytest
 
 ## Stack
 
-FastAPI + SQLAlchemy + SQLite, com [slowapi](https://github.com/laurentS/slowapi)
-para rate limiting. Documentação OpenAPI gerada automaticamente pelo
-FastAPI, servindo tanto como docs pública quanto como fonte de tipagem
-das rotas.
+FastAPI + SQLAlchemy, duas bases SQLite (pública e de comunidade — ver
+"Arquitetura" acima), [slowapi](https://github.com/laurentS/slowapi) para
+rate limiting, hashing de senha via `hashlib.pbkdf2_hmac` (stdlib, sem
+dependência extra de compilação). Documentação OpenAPI gerada
+automaticamente pelo FastAPI.

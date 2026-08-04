@@ -11,12 +11,12 @@ async function search() {
 
   results.innerHTML = '<p class="empty">Buscando...</p>';
 
-  const looksLikeBarcode = /^\d{6,14}$/.test(q);
+  const looksLikeIdentifier = /^\d{6,14}$/.test(q);
   const looksLikeNcm = /^\d{8}$/.test(q);
 
   const params = new URLSearchParams();
-  if (looksLikeBarcode) params.set("barcode", q);
-  else if (looksLikeNcm) params.set("ncm", q);
+  if (looksLikeNcm) params.set("ncm", q);
+  else if (looksLikeIdentifier) params.set("identifier", q);
   else params.set("q", q);
 
   try {
@@ -39,15 +39,16 @@ function render(items) {
     .map(
       (p) => `
     <article class="card">
-      <h3>${escapeHtml(p.description)}</h3>
+      <h3>${escapeHtml(p.name)}</h3>
       <dl>
+        ${p.brand ? `<dt>Marca</dt><dd>${escapeHtml(p.brand)}</dd>` : ""}
         <dt>NCM</dt><dd>${escapeHtml(p.ncm)}</dd>
         ${p.cest ? `<dt>CEST</dt><dd>${escapeHtml(p.cest)}</dd>` : ""}
-        <dt>Códigos de barras</dt><dd>${p.barcodes.map(escapeHtml).join(", ")}</dd>
-        <dt>Unidade</dt><dd>${escapeHtml(p.unit)}</dd>
-        ${p.icms_rate != null ? `<dt>ICMS</dt><dd>${p.icms_rate}%</dd>` : ""}
-        ${p.ipi_rate != null ? `<dt>IPI</dt><dd>${p.ipi_rate}%</dd>` : ""}
+        <dt>Identificadores</dt><dd>${p.identifiers.map((i) => escapeHtml(i.value)).join(", ") || "-"}</dd>
+        <dt>Unidade</dt><dd>${escapeHtml(p.commercial_unit)}</dd>
+        <dt>Fonte</dt><dd>${escapeHtml(p.source)}</dd>
       </dl>
+      <p class="card-links"><a href="/products/${encodeURIComponent(p.id)}/fiscal" target="_blank" rel="noopener">Ver alíquotas</a></p>
     </article>`
     )
     .join("");

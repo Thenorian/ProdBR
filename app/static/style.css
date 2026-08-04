@@ -71,6 +71,9 @@ main { max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem; }
 .card dt { color: var(--muted); }
 .card dd { margin: 0; }
 
+.card-links { margin: .6rem 0 0; font-size: .85rem; }
+.card-links a { color: var(--accent); }
+
 .empty, .error { color: var(--muted); text-align: center; padding: 2rem 0; }
 
 footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 2rem 1.5rem; }

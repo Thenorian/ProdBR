@@ -7,29 +7,38 @@ from fastapi.templating import Jinja2Templates
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.database import Base, engine
-from app.routes import changelog, products
-from app.security import limiter
+from app.database import CommunityBase, PublicBase, community_engine, public_engine
+from app.rate_limit import limiter
+from app.routes import auth, export, fiscal, moderation, products, revisions, users
 
 APP_DIR = Path(__file__).resolve().parent
 
-Base.metadata.create_all(bind=engine)
+PublicBase.metadata.create_all(bind=public_engine)
+CommunityBase.metadata.create_all(bind=community_engine)
 
 app = FastAPI(
     title="ProdBR API",
     description=(
-        "Cadastro publico e colaborativo de produtos brasileiros: codigo de "
-        "barras, NCM/CEST e aliquotas de referencia (ICMS, IPI, PIS, COFINS, "
-        "CBS/IBS). Sem precos, custos ou fornecedores. Licenca GNU GPL v3.0."
+        "Base publica e colaborativa de produtos brasileiros: identificacao "
+        "(GTIN e outros codigos), classificacao (NCM/CEST) e regras fiscais "
+        "de referencia (ICMS, IPI, PIS, COFINS, CBS/IBS) por UF e vigencia. "
+        "Sem precos, custos ou fornecedores. Toda alteracao gera uma revisao "
+        "publica rastreavel. Software sob AGPLv3, dados sob ODbL v1.0 - "
+        "ver LICENSE e DATA_LICENSE."
     ),
-    version="0.1.0",
+    version="0.2.0",
 )
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(products.router)
-app.include_router(changelog.router)
+app.include_router(fiscal.router)
+app.include_router(revisions.router)
+app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(moderation.router)
+app.include_router(export.router)
 
 app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))

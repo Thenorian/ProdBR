@@ -9,7 +9,8 @@ COPY app ./app
 COPY scripts ./scripts
 
 VOLUME ["/app/data"]
-ENV DATABASE_URL=sqlite:////app/data/prodbr.sqlite3
+ENV PUBLIC_DATABASE_URL=sqlite:////app/data/public.sqlite3
+ENV COMMUNITY_DATABASE_URL=sqlite:////app/data/community.sqlite3
 
 EXPOSE 8000
 
