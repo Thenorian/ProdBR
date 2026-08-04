@@ -84,7 +84,7 @@ def apply_entity_change(
         db_public.add(entity)
         db_public.flush()
         for field in fields:
-            if field in payload:
+            if field in payload and payload[field] is not None:
                 db_public.add(
                     Revision(
                         entity_type=entity_type,

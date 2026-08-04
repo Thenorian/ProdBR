@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Cadastrar produto — ProdBR{% endblock %}
+{% block content %}
+  <div id="guest-notice" class="form-card" hidden>
+    <h1>Cadastrar produto</h1>
+    <p class="subtitle">Você precisa de uma conta para contribuir.</p>
+    <a class="btn btn-block" href="/login">Entrar</a>
+    <p class="form-footer">Ainda não tem conta? <a href="/register">Registre-se</a></p>
+  </div>
+
+  <form id="product-form" class="form-card wide" hidden>
+    <h1>Cadastrar produto</h1>
+    <p class="subtitle">Identificação genérica do produto — sem preço, custo ou fornecedor. Alíquotas fiscais são cadastradas à parte, por NCM.</p>
+
+    <div class="form-grid">
+      <div class="form-group full"><label>Nome *</label><input name="name" required /></div>
+      <div class="form-group"><label>Marca</label><input name="brand" /></div>
+      <div class="form-group"><label>Fabricante</label><input name="manufacturer" /></div>
+      <div class="form-group"><label>NCM * (8 dígitos)</label><input name="ncm" pattern="\d{8}" maxlength="8" required /></div>
+      <div class="form-group"><label>CEST</label><input name="cest" maxlength="7" /></div>
+      <div class="form-group"><label>Categoria</label><input name="category" /></div>
+      <div class="form-group"><label>Unidade comercial</label><input name="commercial_unit" value="UN" /></div>
+      <div class="form-group full"><label>Descrição</label><textarea name="description"></textarea></div>
+      <div class="form-group full"><label>Fonte * (de onde veio esse cadastro)</label><input name="source" placeholder="Contribuição da comunidade, documentação do fabricante..." required /></div>
+      <div class="form-group full"><label>Motivo *</label><input name="reason" value="Cadastro inicial" required /></div>
+    </div>
+
+    <div class="form-actions"><button type="submit" class="btn">Enviar contribuição</button></div>
+    <div class="form-message" id="message" hidden></div>
+  </form>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/new_product.js"></script>
+{% endblock %}

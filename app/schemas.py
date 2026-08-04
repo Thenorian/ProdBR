@@ -122,6 +122,7 @@ class RevisionOut(BaseModel):
     id: int
     entity_type: str
     entity_id: str
+    entity_name: str | None = None
     contributor: str | None
     action: str
     field: str | None

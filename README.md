@@ -119,6 +119,16 @@ python -m scripts.promote_user <username> moderator
 python -m scripts.seed_example
 ```
 
+## Anúncios (opcional)
+
+O projeto é open source e precisa se manter. Cada instância pode exibir
+seus próprios anúncios sem precisar mexer no código nem em nenhum painel:
+defina `ADS_SNIPPET` no `.env` com o HTML/JS do provedor escolhido (ex:
+Google AdSense). Se a variável estiver vazia (padrão), nenhum anúncio é
+exibido. O snippet aparece num espaço só, discreto e rotulado
+("Publicidade"), perto do rodapé em todas as páginas - nunca como popup
+ou interstitial.
+
 ## Baixar a base pública
 
 `GET /export/sqlite`, `/export/sql` ou `/export/csv` — sempre só com

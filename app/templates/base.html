@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}ProdBR{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-row">
+      <a class="brand" href="/">Prod<span>BR</span></a>
+
+      <form class="header-search" onsubmit="return false;">
+        <input id="global-search" type="text" placeholder="Buscar produto, código de barras ou NCM..." />
+      </form>
+
+      <nav class="site-nav">
+        <a href="/">Página inicial</a>
+        <a href="/new">Cadastrar produto</a>
+        <a href="/mod" id="nav-mod" hidden>Moderação</a>
+        <span id="nav-guest">
+          <a href="/login">Entrar</a>
+          <a href="/register" class="btn btn-sm">Registrar</a>
+        </span>
+        <span id="nav-user" hidden>
+          <span id="nav-username" class="nav-username"></span>
+          <button id="nav-logout" class="btn-link">Sair</button>
+        </span>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if ads_snippet %}
+    <div class="ad-slot">
+      <span class="ad-label">Publicidade</span>
+      {{ ads_snippet | safe }}
+    </div>
+  {% endif %}
+
+  <footer class="site-footer">
+    <p>
+      ProdBR — base pública e colaborativa de produtos brasileiros.
+      Software <a href="/license">AGPLv3</a> · Dados <a href="/data-license">ODbL v1.0</a> ·
+      <a href="/docs">API</a> · <a href="https://github.com/Thenorian/ProdBR" target="_blank" rel="noopener">GitHub</a>
+    </p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

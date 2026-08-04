@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Produto — ProdBR{% endblock %}
+{% block content %}
+  <div id="product-root">
+    <p class="empty">Carregando produto...</p>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script>window.PRODUCT_ID = {{ product_id | tojson }};</script>
+  <script src="/static/product.js"></script>
+{% endblock %}

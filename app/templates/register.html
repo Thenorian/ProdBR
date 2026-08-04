@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Registrar — ProdBR{% endblock %}
+{% block content %}
+  <div class="form-card">
+    <h1>Criar conta</h1>
+    <p class="subtitle">Toda contribuição fica registrada com seu nome — reputação sobe conforme suas edições são aceitas.</p>
+
+    <form id="register-form">
+      <div class="form-group">
+        <label>Username</label>
+        <input name="username" pattern="[a-zA-Z0-9_]{3,40}" title="3-40 caracteres, letras/números/underscore" required autofocus />
+      </div>
+      <div class="form-group">
+        <label>E-mail</label>
+        <input name="email" type="email" required />
+      </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input name="password" type="password" minlength="8" required />
+        <div class="form-hint">Mínimo 8 caracteres.</div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-block">Criar conta</button>
+      </div>
+    </form>
+    <div class="form-message" id="message" hidden></div>
+    <p class="form-footer">Já tem conta? <a href="/login">Entrar</a></p>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/register.js"></script>
+{% endblock %}

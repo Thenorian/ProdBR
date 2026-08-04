@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Entrar — ProdBR{% endblock %}
+{% block content %}
+  <form id="login-form" class="form-card">
+    <h1>Entrar</h1>
+    <p class="subtitle">Use sua conta para contribuir com produtos e regras fiscais.</p>
+
+    <div class="form-group">
+      <label>Username</label>
+      <input name="username" required autofocus />
+    </div>
+    <div class="form-group">
+      <label>Senha</label>
+      <input name="password" type="password" required />
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-block">Entrar</button>
+    </div>
+    <div class="form-message" id="message" hidden></div>
+    <p class="form-footer">Ainda não tem conta? <a href="/register">Registre-se</a></p>
+  </form>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/login.js"></script>
+{% endblock %}

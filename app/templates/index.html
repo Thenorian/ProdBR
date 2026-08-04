@@ -1,37 +1,26 @@
-<!doctype html>
-<html lang="pt-br">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ProdBR — Cadastro público de produtos</title>
-  <link rel="stylesheet" href="/static/style.css" />
-</head>
-<body>
-  <header class="hero">
-    <h1>ProdBR</h1>
-    <p>Base pública e colaborativa de produtos brasileiros: identificadores (GTIN e outros), NCM/CEST e regras fiscais de referência por UF e vigência.</p>
-    <p class="links">
-      <a href="/docs">Documentação da API</a> ·
-      <a href="/revisions">Alterações recentes</a> ·
-      <a href="/export/sqlite">Baixar a base</a> ·
-      <a href="https://github.com/Thenorian/ProdBR" target="_blank" rel="noopener">GitHub</a> ·
-      <span>Software AGPLv3 · Dados ODbL v1.0</span>
-    </p>
-  </header>
+{% extends "base.html" %}
+{% block title %}ProdBR — a enciclopédia livre de produtos brasileiros{% endblock %}
+{% block content %}
+  <div class="wiki-hero">
+    <h1>Prod<span>BR</span></h1>
+    <p>A base de dados livre e colaborativa de produtos brasileiros — que qualquer pessoa pode consultar, baixar e editar.</p>
 
-  <main>
-    <section class="search-box">
-      <input id="query" type="text" placeholder="Buscar por código de barras, NCM ou nome..." autofocus />
-      <button id="search-btn">Pesquisar</button>
-    </section>
+    <div class="search-box">
+      <input id="query" type="text" placeholder="Buscar produto, código de barras/GTIN ou NCM..." autofocus />
+      <button id="search-btn" class="btn">Pesquisar</button>
+    </div>
 
-    <section id="results" class="results"></section>
-  </main>
+    <div class="stats-row">
+      <div><strong id="stat-products">—</strong>produtos catalogados</div>
+      <div><strong id="stat-revisions">—</strong>edições registradas</div>
+    </div>
+  </div>
 
-  <footer>
-    <p>Base de dados aberta — qualquer pessoa pode consultar, baixar e contribuir. Nenhuma informação de preço, custo ou fornecedor é armazenada. Toda alteração fica registrada e é auditável.</p>
-  </footer>
+  <div id="results" class="results"></div>
 
-  <script src="/static/search.js"></script>
-</body>
-</html>
+  <h2 class="section-title">Mudanças recentes</h2>
+  <div id="changes" class="changes-list"><p class="empty">Carregando...</p></div>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/home.js"></script>
+{% endblock %}

@@ -25,5 +25,12 @@ class Settings(BaseSettings):
 
     session_ttl_hours: int = 24 * 14
 
+    # Snippet de anuncio (HTML/JS do provedor escolhido pelo operador da
+    # instancia, ex: Google AdSense). Vazio = nenhum anuncio. Configurado
+    # so por variavel de ambiente - de proposito, sem painel/admin UI,
+    # ja que e uma configuracao por instancia (self-hosted), nao um dado
+    # da base publica.
+    ads_snippet: str = ""
+
 
 settings = Settings()
