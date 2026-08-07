@@ -80,16 +80,20 @@ function renderPortal(products) {
     sections.get(section).push(p);
   }
 
+  const MAX_PER_SECTION = 6;
   portalEl.innerHTML = [...sections.entries()]
-    .map(
-      ([section, items]) => `
+    .map(([section, items]) => {
+      const shown = items.slice(0, MAX_PER_SECTION);
+      const more = items.length - shown.length;
+      return `
       <div class="portal-section">
         <h3>${escapeHtml(section)}</h3>
         <ul>
-          ${items.map((p) => `<li><a href="/view/products/${encodeURIComponent(p.id)}">${escapeHtml(p.name)}</a></li>`).join("")}
+          ${shown.map((p) => `<li><a href="/view/products/${encodeURIComponent(p.id)}">${escapeHtml(p.name)}</a></li>`).join("")}
         </ul>
-      </div>`
-    )
+        ${more > 0 ? `<a class="portal-more" href="/?q=${encodeURIComponent(section)}">+ ${more} produto(s)</a>` : ""}
+      </div>`;
+    })
     .join("");
 }
 

@@ -2,6 +2,7 @@
 {% block title %}ProdBR — a enciclopédia livre de produtos brasileiros{% endblock %}
 {% block content %}
   <div class="wiki-hero">
+    <p class="hero-kicker">Base pública · colaborativa · gratuita</p>
     <h1>Prod<span>BR</span></h1>
     <p>A base de dados livre e colaborativa de produtos brasileiros — que qualquer pessoa pode consultar, baixar e editar.</p>
 
@@ -10,9 +11,15 @@
       <button id="search-btn" class="btn">Pesquisar</button>
     </div>
 
+    <div class="hero-actions">
+      <a href="/docs" class="btn btn-outline btn-sm" target="_blank" rel="noopener">📘 Documentação da API (Swagger)</a>
+      <a href="/export/sqlite" class="btn-link">Baixar a base completa</a>
+    </div>
+
     <div class="stats-row">
-      <div><strong id="stat-products">—</strong>produtos catalogados</div>
-      <div><strong id="stat-revisions">—</strong>edições registradas</div>
+      <div class="stat-card"><strong id="stat-products">—</strong>produtos catalogados</div>
+      <div class="stat-card"><strong id="stat-revisions">—</strong>edições registradas</div>
+      <a class="stat-card stat-card-link" href="/docs" target="_blank" rel="noopener"><strong>API →</strong>use os dados no seu sistema</a>
     </div>
   </div>
 
