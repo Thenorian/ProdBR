@@ -102,6 +102,9 @@ const GLOSSARY = {
   cofins: "Contribuição federal para a seguridade social, também sobre o faturamento.",
   cbs: "Contribuição sobre Bens e Serviços — novo tributo federal da Reforma Tributária (EC 132/2023), substitui PIS/COFINS/IPI.",
   ibs: "Imposto sobre Bens e Serviços — novo tributo da Reforma Tributária, substitui ICMS/ISS.",
+  ii: "Imposto de Importação — federal, alíquota-base definida pela Tarifa Externa Comum (TEC) do Mercosul.",
+  fcp: "Fundo de Combate à Pobreza — adicional estadual sobre o ICMS, previsto na Constituição.",
+  country: "País do Mercosul a que a regra fiscal se refere. O NCM é comum ao bloco, mas cada país tributa com regras próprias.",
 };
 
 function helpIcon(key) {
@@ -151,7 +154,10 @@ function actionLabel(action) {
 }
 
 function entityLabel(entityType) {
-  return { product: "produto", identifier: "identificador", fiscal_rule: "regra fiscal" }[entityType] || entityType;
+  return (
+    { product: "produto", identifier: "identificador", fiscal_rule: "regra fiscal", ncm_classification: "NCM" }[entityType] ||
+    entityType
+  );
 }
 
 function initNav() {

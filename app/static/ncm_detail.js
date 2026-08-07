@@ -1,0 +1,369 @@
+const root = document.getElementById("ncm-root");
+const ncmCode = window.NCM_CODE;
+
+let currentNcm = null;
+let currentRevisions = [];
+
+async function loadNcm() {
+  try {
+    const res = await fetch(`/ncm/${encodeURIComponent(ncmCode)}`);
+    if (res.status === 404) {
+      renderNotFound();
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const ncm = await res.json();
+
+    const revisionsRes = await fetch(`/revisions?entity_type=ncm_classification&entity_id=${encodeURIComponent(ncmCode)}&limit=10`);
+    const revisions = revisionsRes.ok ? await revisionsRes.json() : [];
+
+    currentNcm = ncm;
+    currentRevisions = revisions;
+    render(ncm, revisions);
+  } catch (err) {
+    root.innerHTML = `<p class="error">Erro ao carregar: ${err.message}</p>`;
+  }
+}
+
+function renderNotFound() {
+  const canCreate = isLoggedIn();
+  root.innerHTML = `
+    <div class="page-header">
+      <h1>NCM ${escapeHtml(ncmCode)}</h1>
+      <p>Essa classificação ainda não foi cadastrada no ProdBR.</p>
+    </div>
+    ${
+      canCreate
+        ? `
+      <div class="product-form-wrap is-editing" id="create-wrap">
+        <div class="product-form">
+          <h2>Cadastrar esta classificação</h2>
+          <form id="create-form">
+            <div class="form-grid">
+              <div class="form-group full">
+                <label>Descrição oficial (TIPI/Mercosul)*</label>
+                <textarea name="description" required></textarea>
+              </div>
+              <div class="form-group">
+                <label>Capítulo (2 dígitos)</label>
+                <input name="chapter" maxlength="2" value="${escapeHtml(ncmCode.slice(0, 2))}" />
+              </div>
+              <div class="form-group">
+                <label>Unidade estatística</label>
+                <input name="unit" placeholder="UN, KG..." />
+              </div>
+              <div class="form-group full">
+                <label>Fonte*</label>
+                <input name="source" required placeholder="Ex: TIPI, Receita Federal" />
+              </div>
+              <div class="form-group full">
+                <label>Motivo da alteração*</label>
+                <input name="reason" required placeholder="Por que você está cadastrando isso?" />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn">Cadastrar</button>
+            </div>
+          </form>
+          <div class="form-message" id="create-message" hidden></div>
+        </div>
+      </div>`
+        : `<p class="form-hint"><a href="/login">Entre</a> para cadastrar esta classificação.</p>`
+    }
+  `;
+
+  if (canCreate) {
+    document.getElementById("create-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const messageEl = document.getElementById("create-message");
+      const data = Object.fromEntries(new FormData(e.target).entries());
+      const payload = {
+        ncm: ncmCode,
+        description: data.description,
+        chapter: data.chapter || null,
+        unit: data.unit || null,
+        source: data.source,
+        reason: data.reason,
+      };
+      try {
+        const res = await authFetch("/ncm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const body = await res.json();
+        if (res.status === 202) {
+          showMessage(messageEl, "success", "Enviado para moderação.");
+        } else if (res.ok) {
+          showMessage(messageEl, "success", "Cadastrado! Recarregando...");
+          setTimeout(loadNcm, 900);
+        } else {
+          showMessage(messageEl, "error", body.detail ? JSON.stringify(body.detail) : "Erro ao enviar.");
+        }
+      } catch (err) {
+        showMessage(messageEl, "error", err.message);
+      }
+    });
+  }
+}
+
+function fiscalRulesTable(rules) {
+  if (!rules || rules.length === 0) {
+    return '<p class="empty">Nenhuma regra fiscal cadastrada para este NCM ainda.</p>';
+  }
+  const byCountry = new Map();
+  for (const r of rules) {
+    if (!byCountry.has(r.country)) byCountry.set(r.country, []);
+    byCountry.get(r.country).push(r);
+  }
+  return [...byCountry.entries()]
+    .map(([country, group]) => {
+      const rows = group
+        .map(
+          (f) => `
+        <tr>
+          <td>${f.uf ? `UF ${escapeHtml(f.uf)}` : "Nacional"}</td>
+          <td>${f.icms_rate ?? "—"}</td>
+          <td>${f.ipi_rate ?? "—"}</td>
+          <td>${f.pis_rate ?? "—"}</td>
+          <td>${f.cofins_rate ?? "—"}</td>
+          <td>${f.ii_rate ?? "—"}</td>
+          <td>${f.fcp_rate ?? "—"}</td>
+          <td>${f.cbs_rate ?? "—"}</td>
+          <td>${f.ibs_rate ?? "—"}</td>
+          <td>${f.valid_until ? `${f.valid_from} a ${f.valid_until}` : `desde ${f.valid_from}`}</td>
+        </tr>`
+        )
+        .join("");
+      return `
+      <div class="ncm-country-group">
+        <h4>${escapeHtml(country)}</h4>
+        <table class="fiscal-table">
+          <thead><tr>
+            <th>Escopo</th><th>ICMS${helpIcon("icms")}</th><th>IPI${helpIcon("ipi")}</th>
+            <th>PIS${helpIcon("pis")}</th><th>COFINS${helpIcon("cofins")}</th>
+            <th>II${helpIcon("ii")}</th><th>FCP${helpIcon("fcp")}</th>
+            <th>CBS${helpIcon("cbs")}</th><th>IBS${helpIcon("ibs")}</th><th>Vigência</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    })
+    .join("");
+}
+
+function productsList(products, total) {
+  if (!products || products.length === 0) {
+    return '<p class="empty">Nenhum produto usa esta classificação ainda.</p>';
+  }
+  const items = products
+    .map((p) => `<li><a href="/view/products/${encodeURIComponent(p.id)}">${escapeHtml(p.name)}</a>${p.brand ? ` — ${escapeHtml(p.brand)}` : ""}</li>`)
+    .join("");
+  const more = total > products.length ? `<p class="form-hint">e mais ${total - products.length} produto(s).</p>` : "";
+  return `<ul class="about-list">${items}</ul>${more}`;
+}
+
+function render(ncm, revisions) {
+  root.innerHTML = `
+    <div class="article-header">
+      <h1>NCM ${escapeHtml(ncm.ncm)}</h1>
+      <div class="article-subtitle">
+        ${ncm.chapter ? `<span class="ncm-chapter">capítulo ${escapeHtml(ncm.chapter)}</span> · ` : ""}
+        ${ncm.product_count} produto(s) classificado(s) aqui
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="article">Classificação</button>
+      <button class="tab-btn" data-tab="products">Produtos</button>
+      <button class="tab-btn" data-tab="history">Histórico</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-article">
+      <div class="product-form-wrap" id="ncm-form-wrap">
+        <div class="product-form">
+          <div class="product-form-header">
+            <h2>Descrição oficial${helpIcon("ncm")}</h2>
+            <button type="button" id="edit-toggle" class="btn btn-outline btn-sm view-only">✎ Editar</button>
+          </div>
+
+          <form id="ncm-form">
+            <fieldset id="ncm-fieldset" disabled>
+              <div class="form-grid">
+                <div class="form-group full">
+                  <label>Descrição</label>
+                  <textarea name="description">${escapeHtml(ncm.description)}</textarea>
+                </div>
+                <div class="form-group">
+                  <label>Capítulo</label>
+                  <input name="chapter" value="${escapeHtml(ncm.chapter ?? "")}" maxlength="2" />
+                </div>
+                <div class="form-group">
+                  <label>Unidade estatística</label>
+                  <input name="unit" value="${escapeHtml(ncm.unit ?? "")}" />
+                </div>
+                <div class="form-group full">
+                  <label>Fonte</label>
+                  <input name="source" value="${escapeHtml(ncm.source)}" />
+                </div>
+              </div>
+            </fieldset>
+            <div class="edit-only form-group full" style="margin-top:1rem;">
+              <label>Motivo da alteração *</label>
+              <input name="reason" id="edit-reason" placeholder="Por que você está mudando isso?" />
+            </div>
+            <div class="edit-only form-actions">
+              <button type="submit" class="btn">Salvar alterações</button>
+              <button type="button" id="cancel-edit" class="btn btn-outline">Cancelar</button>
+            </div>
+          </form>
+          <div class="form-message" id="edit-message" hidden></div>
+        </div>
+      </div>
+
+      <h3 class="section-title">Regras fiscais${helpIcon("uf")}</h3>
+      ${fiscalRulesTable(ncm.fiscal_rules)}
+      <p class="form-hint">Regras fiscais são cadastradas via API (<code>POST /fiscal-rules</code>), separadas desta ficha.</p>
+    </div>
+
+    <div class="tab-panel" id="tab-products">
+      ${productsList([], 0)}
+      <div id="ncm-products-list"><p class="empty">Carregando produtos...</p></div>
+    </div>
+
+    <div class="tab-panel" id="tab-history">
+      <div class="history-list">${renderHistory(revisions)}</div>
+    </div>
+  `;
+  // remove o placeholder duplicado da lista de produtos
+  document.querySelector("#tab-products .about-list")?.remove();
+  document.querySelector("#tab-products .empty")?.remove();
+
+  root.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activateTab(btn.dataset.tab);
+      if (btn.dataset.tab === "products") loadProducts();
+    });
+  });
+
+  wireEditing(ncm);
+
+  const initialTab = new URLSearchParams(window.location.search).get("tab");
+  if (initialTab) {
+    activateTab(initialTab);
+    if (initialTab === "products") loadProducts();
+  }
+}
+
+async function loadProducts() {
+  const el = document.getElementById("ncm-products-list");
+  if (el.dataset.loaded) return;
+  try {
+    const res = await fetch(`/products?ncm=${encodeURIComponent(ncmCode)}&limit=10`);
+    const data = res.ok ? await res.json() : { items: [], total: 0 };
+    el.innerHTML = productsList(data.items, data.total);
+    el.dataset.loaded = "1";
+  } catch (err) {
+    el.innerHTML = `<p class="error">Erro ao carregar produtos: ${err.message}</p>`;
+  }
+}
+
+function activateTab(name) {
+  root.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  root.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("active", p.id === `tab-${name}`));
+}
+
+function renderHistory(revisions) {
+  if (!revisions || revisions.length === 0) {
+    return '<p class="empty">Nenhuma edição registrada ainda.</p>';
+  }
+  return revisions
+    .map((r) => {
+      const who = r.contributor || "sistema";
+      const diff =
+        r.action === "create"
+          ? `definido como <strong>${escapeHtml(JSON.parse(r.new_value ?? "null"))}</strong>`
+          : `<strong>${escapeHtml(JSON.parse(r.old_value ?? "null"))}</strong><span class="arrow">→</span><strong>${escapeHtml(JSON.parse(r.new_value ?? "null"))}</strong>`;
+      return `
+      <div class="history-row">
+        <span class="history-time">${new Date(r.created_at + "Z").toLocaleString("pt-BR")}</span>
+        · <span class="history-user">${escapeHtml(who)}</span>
+        <span class="badge badge-${r.action}">${r.action}</span>
+        <div class="history-diff"><code class="history-field">${escapeHtml(r.field)}</code> ${diff}</div>
+        <span class="history-reason">"${escapeHtml(r.reason)}"</span>
+      </div>`;
+    })
+    .join("");
+}
+
+function wireEditing(ncm) {
+  const wrap = document.getElementById("ncm-form-wrap");
+  const fieldset = document.getElementById("ncm-fieldset");
+  const toggleBtn = document.getElementById("edit-toggle");
+  const cancelBtn = document.getElementById("cancel-edit");
+  const form = document.getElementById("ncm-form");
+  const messageEl = document.getElementById("edit-message");
+
+  if (!isLoggedIn()) {
+    toggleBtn.replaceWith(document.createTextNode(""));
+    const hint = document.createElement("p");
+    hint.className = "form-hint view-only";
+    hint.innerHTML = '<a href="/login">Entre</a> para editar esta classificação.';
+    wrap.querySelector(".product-form-header").appendChild(hint);
+  } else {
+    toggleBtn.addEventListener("click", () => setEditing(true));
+    cancelBtn.addEventListener("click", () => {
+      setEditing(false);
+      render(currentNcm, currentRevisions);
+    });
+  }
+
+  function setEditing(on) {
+    fieldset.disabled = !on;
+    wrap.classList.toggle("is-editing", on);
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const reason = document.getElementById("edit-reason").value.trim();
+    if (!reason) {
+      showMessage(messageEl, "error", "Preencha o motivo da alteração.");
+      return;
+    }
+    const data = Object.fromEntries(new FormData(form).entries());
+    const payload = {
+      reason,
+      description: data.description || null,
+      chapter: data.chapter || null,
+      unit: data.unit || null,
+      source: data.source || null,
+    };
+    try {
+      const res = await authFetch(`/ncm/${encodeURIComponent(ncmCode)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json();
+      if (res.status === 202) {
+        showMessage(messageEl, "success", "Reputação insuficiente para aplicar direto — enviado para moderação.");
+      } else if (res.ok) {
+        showMessage(messageEl, "success", "Contribuição aplicada. Recarregando...");
+        setTimeout(loadNcm, 900);
+      } else {
+        showMessage(messageEl, "error", body.detail ? JSON.stringify(body.detail) : "Erro ao enviar.");
+      }
+    } catch (err) {
+      showMessage(messageEl, "error", err.message);
+    }
+  });
+}
+
+function showMessage(el, kind, text) {
+  if (!kind) return;
+  el.hidden = false;
+  el.className = `form-message ${kind}`;
+  el.textContent = text;
+}
+
+loadNcm();

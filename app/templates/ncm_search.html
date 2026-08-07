@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}NCM — ProdBR{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>Classificações NCM</h1>
+    <p>
+      Consulte a descrição oficial e as regras fiscais de um NCM diretamente, sem precisar
+      de um produto cadastrado. Produtos continuam sendo a entidade principal do ProdBR —
+      isso aqui é só o catálogo de apoio da classificação fiscal em si.
+    </p>
+  </div>
+
+  <div class="search-box">
+    <input id="ncm-query" type="text" placeholder="Código NCM ou parte da descrição..." autofocus />
+    <button id="ncm-search-btn" class="btn">Pesquisar</button>
+  </div>
+
+  <div id="ncm-results" class="results"></div>
+
+  <p class="form-hint" style="text-align:center; margin-top:1.5rem;">
+    Não encontrou o NCM que procura? <a href="/login">Entre</a> e cadastre-o.
+  </p>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/ncm_search.js"></script>
+{% endblock %}

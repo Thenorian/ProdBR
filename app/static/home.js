@@ -127,11 +127,15 @@ function renderChanges(revisions) {
   changesEl.innerHTML = revisions
     .map((r) => {
       const who = r.contributor || "sistema";
-      const href = r.entity_type === "product" ? `/view/products/${encodeURIComponent(r.entity_id)}?tab=history` : "#";
-      const tag = r.entity_type === "product" ? "a" : "div";
+      const LINKABLE = {
+        product: (id) => `/view/products/${encodeURIComponent(id)}?tab=history`,
+        ncm_classification: (id) => `/view/ncm/${encodeURIComponent(id)}?tab=history`,
+      };
+      const href = LINKABLE[r.entity_type]?.(r.entity_id) || "#";
+      const tag = LINKABLE[r.entity_type] ? "a" : "div";
       const label = r.entity_name || `${entityLabel(r.entity_type)} ${r.entity_id}`;
       return `
-      <${tag} class="change-row" ${r.entity_type === "product" ? `href="${href}"` : ""}>
+      <${tag} class="change-row" ${LINKABLE[r.entity_type] ? `href="${href}"` : ""}>
         <span class="diff-tag ${r.action}">${DIFF_TAG[r.action] || "•"}</span>
         <span class="change-entity">${escapeHtml(label)}</span>
         <span class="badge">${entityLabel(r.entity_type)}</span>

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}NCM {{ ncm_code }} — ProdBR{% endblock %}
+{% block content %}
+  <div id="ncm-root">
+    <p class="empty">Carregando NCM...</p>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script>window.NCM_CODE = {{ ncm_code | tojson }};</script>
+  <script src="/static/ncm_detail.js"></script>
+{% endblock %}

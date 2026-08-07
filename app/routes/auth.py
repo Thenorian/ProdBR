@@ -85,3 +85,24 @@ def create_api_key(
     db.add(ApiKey(user_id=user.id, name=name, key_hash=hash_token(raw_key)))
     db.commit()
     return ApiKeyOut(name=name, raw_key=raw_key)
+
+
+@router.post("/api-key/regenerate", response_model=ApiKeyOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit(settings.rate_limit_write)
+def regenerate_api_key(
+    request: Request,
+    db: DbSession = Depends(get_community_db),
+    user: User = Depends(require_user),
+):
+    """Revoga todas as chaves de API ativas do usuario e gera uma nova no
+    lugar - para quando a chave (mostrada uma unica vez, no cadastro) se
+    perde. Funciona autenticado tanto pela chave antiga quanto por sessao
+    de login (usuario/senha), que e o caminho pra quem perdeu a chave de
+    vez."""
+    db.query(ApiKey).filter(ApiKey.user_id == user.id, ApiKey.is_active.is_(True)).update(
+        {"is_active": False}
+    )
+    raw_key = generate_token()
+    db.add(ApiKey(user_id=user.id, name="default", key_hash=hash_token(raw_key)))
+    db.commit()
+    return ApiKeyOut(name="default", raw_key=raw_key)

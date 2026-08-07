@@ -11,6 +11,26 @@ from app.schemas_auth import UserPublic
 router = APIRouter(tags=["users"])
 
 
+@router.get("/users", response_model=list[UserPublic])
+@limiter.limit(settings.rate_limit_read)
+def list_contributors(
+    request: Request,
+    limit: int = 20,
+    db_community: DbSession = Depends(get_community_db),
+):
+    """Ranking publico de contribuidores por reputacao - usado na pagina
+    Sobre. So dados publicos do perfil (sem e-mail)."""
+    limit = max(1, min(limit, 50))
+    users = (
+        db_community.query(User)
+        .filter(User.reputation > 0)
+        .order_by(User.reputation.desc(), User.created_at)
+        .limit(limit)
+        .all()
+    )
+    return [UserPublic(username=u.username, reputation=u.reputation, role=u.role, created_at=u.created_at) for u in users]
+
+
 @router.get("/users/{username}", response_model=UserPublic)
 @limiter.limit(settings.rate_limit_read)
 def get_user_profile(

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Sobre — ProdBR{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>Sobre o ProdBR</h1>
+    <p>A base pública e colaborativa de produtos brasileiros — feita nos moldes da Wikipédia.</p>
+  </div>
+
+  <div class="about-section">
+    <h2 class="section-title">O que é</h2>
+    <p>
+      O ProdBR é uma base aberta de identificação de produtos: dado um código de barras,
+      GTIN ou outro identificador, ela devolve nome, marca, categoria e classificação
+      fiscal (NCM/CEST) do produto — e, separadamente, as regras fiscais de referência
+      aplicáveis a essa classificação. A Thenorian mantém a instância principal, mas
+      qualquer pessoa pode consultar, contribuir ou hospedar sua própria cópia
+      (self-hosted). Não é salvo preço, custo ou fornecedor.
+    </p>
+  </div>
+
+  <div class="about-section">
+    <h2 class="section-title">Produto, NCM e regras fiscais são coisas separadas</h2>
+    <p>
+      Um <strong>produto</strong> é a identificação (nome, marca, identificadores). Um
+      <strong>NCM</strong> é a classificação fiscal em si — sua descrição oficial existe
+      e pode ser consultada independente de qualquer produto usá-la (veja <a href="/view/ncm">a
+      seção de NCM</a>). As <strong>regras fiscais</strong> (alíquotas) são chaveadas pelo
+      NCM, não pelo produto: dois produtos com o mesmo NCM compartilham a mesma regra
+      automaticamente, porque é a lei que tributa a classificação, não o SKU específico.
+    </p>
+  </div>
+
+  <div class="about-section">
+    <h2 class="section-title">Escopo Mercosul</h2>
+    <p>
+      A <strong>N</strong>omenclatura <strong>C</strong>omum do <strong>M</strong>ercosul é
+      compartilhada por Brasil, Argentina, Paraguai e Uruguai — por isso a classificação de
+      um NCM (código e descrição) não depende de país. Já a tributação sobre essa
+      classificação é decidida por cada país-membro, então toda regra fiscal tem um campo
+      de país (<code>country</code>, ISO 3166-1 alpha-2). Hoje o ProdBR só tem dados fiscais
+      do <strong>Brasil</strong> (<code>country=BR</code>) — o modelo já está pronto para
+      Argentina, Paraguai e Uruguai quando houver quem contribua com esses dados, sem
+      precisar de nenhuma mudança estrutural.
+    </p>
+  </div>
+
+  <div class="about-section">
+    <h2 class="section-title">Tributos cobertos (Brasil)</h2>
+    <p>Para cada NCM/UF/vigência, uma regra fiscal pode registrar:</p>
+    <ul class="about-list">
+      <li><strong>ICMS</strong> — imposto estadual sobre circulação de mercadorias, incluindo o adicional de <strong>FCP</strong> (Fundo de Combate à Pobreza) e a <strong>MVA</strong> usada no cálculo do ICMS-ST.</li>
+      <li><strong>IPI</strong> — imposto federal sobre produtos industrializados.</li>
+      <li><strong>PIS</strong> e <strong>COFINS</strong> — contribuições federais sobre o faturamento.</li>
+      <li><strong>II</strong> — imposto de importação, cuja alíquota-base é a Tarifa Externa Comum (TEC) do Mercosul.</li>
+      <li><strong>CBS</strong> e <strong>IBS</strong> — os novos tributos da Reforma Tributária (EC 132/2023), que substituirão PIS/COFINS/IPI (CBS, federal) e ICMS/ISS (IBS, estadual/municipal) ao longo da transição.</li>
+      <li>Um campo livre de <strong>observações</strong> para particularidades do regime (isenção, monofásico, redução de base de cálculo etc.) que não justificam um campo dedicado.</li>
+    </ul>
+    <p class="form-hint">
+      Tudo isso é consultável tanto a partir de um produto (<code>/products/{id}/fiscal</code>)
+      quanto diretamente por NCM (<code>/fiscal-rules?ncm=...</code> ou <code>/ncm/{codigo}</code>),
+      sem precisar de nenhum produto cadastrado.
+    </p>
+  </div>
+
+  <div class="about-section">
+    <h2 class="section-title">Licenciamento</h2>
+    <p>
+      Software sob <a href="/license">AGPLv3</a> — instâncias modificadas rodando como
+      serviço público devem disponibilizar o código-fonte das modificações. Dados sob
+      <a href="/data-license">ODbL v1.0</a> — a mesma licença usada pelo OpenStreetMap,
+      pensada para bancos de dados colaborativos.
+    </p>
+  </div>
+
+  <div class="about-section">
+    <h2 class="section-title">Contribuidores</h2>
+    <p class="form-hint">Reputação sobe a cada contribuição aplicada — todo cadastro e edição é público e rastreável.</p>
+    <div id="contributors-list"><p class="empty">Carregando...</p></div>
+  </div>
+
+  <div class="about-section">
+    <h2 class="section-title">Números da base</h2>
+    <div class="stats-row" id="about-stats">
+      <div><strong id="stat-products">—</strong>produtos</div>
+      <div><strong id="stat-ncm">—</strong>NCMs classificados</div>
+      <div><strong id="stat-fiscal">—</strong>regras fiscais</div>
+      <div><strong id="stat-revisions">—</strong>edições</div>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/about.js"></script>
+{% endblock %}

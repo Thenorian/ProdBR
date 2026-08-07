@@ -62,16 +62,21 @@ function fiscalRows(fiscal) {
     return `<tr><td colspan="2">Sem regra fiscal cadastrada para este NCM.</td></tr>`;
   }
   const rows = [
+    ["País", fiscal.country ? escapeHtml(fiscal.country) : "BR", "country"],
     ["Escopo", fiscal.uf ? `Estado ${fiscal.uf}` : "Nacional (padrão)", "uf"],
     ["Origem", fiscal.origin != null ? fiscal.origin : "—", "origin"],
     ["ICMS", fiscal.icms_rate != null ? `${fiscal.icms_rate}%` : "—", "icms"],
+    ["FCP", fiscal.fcp_rate != null ? `${fiscal.fcp_rate}%` : "—", "fcp"],
+    ["MVA (ICMS-ST)", fiscal.icms_st_mva_rate != null ? `${fiscal.icms_st_mva_rate}%` : "—", null],
     ["IPI", fiscal.ipi_rate != null ? `${fiscal.ipi_rate}%` : "—", "ipi"],
+    ["II", fiscal.ii_rate != null ? `${fiscal.ii_rate}%` : "—", "ii"],
     ["PIS", fiscal.pis_rate != null ? `${fiscal.pis_rate}%` : "—", "pis"],
     ["COFINS", fiscal.cofins_rate != null ? `${fiscal.cofins_rate}%` : "—", "cofins"],
     ["CBS", fiscal.cbs_rate != null ? `${fiscal.cbs_rate}%` : "—", "cbs"],
     ["IBS", fiscal.ibs_rate != null ? `${fiscal.ibs_rate}%` : "—", "ibs"],
     ["Vigência", fiscal.valid_until ? `${fiscal.valid_from} a ${fiscal.valid_until}` : `desde ${fiscal.valid_from}`, null],
     ["Fonte", escapeHtml(fiscal.source), null],
+    ...(fiscal.notes ? [["Observações", escapeHtml(fiscal.notes), null]] : []),
   ];
   return rows
     .map(([k, v, help]) => `<tr><th>${k}${help ? helpIcon(help) : ""}</th><td>${v}</td></tr>`)
@@ -134,7 +139,10 @@ function render(product, fiscal, revisions) {
 
             <h3 class="section-title">Dados fiscais${helpIcon("ncm")}</h3>
             <table class="fiscal-table">${fiscalRows(fiscal)}</table>
-            <p class="form-hint">Regras fiscais são compartilhadas por NCM e editadas via API separadamente (não aqui, na ficha do produto).</p>
+            <p class="form-hint">
+              Regras fiscais são compartilhadas por NCM e editadas via API separadamente (não aqui, na ficha do produto).
+              ${product.ncm ? `<a href="/view/ncm/${encodeURIComponent(product.ncm)}">Ver ficha completa do NCM ${escapeHtml(product.ncm)} →</a>` : ""}
+            </p>
 
             <div class="edit-only form-group full" style="margin-top:1rem;">
               <label>Motivo da alteração *</label>
