@@ -153,9 +153,11 @@ O projeto é open source e precisa se manter. Cada instância pode exibir
 seus próprios anúncios sem precisar mexer no código nem em nenhum painel:
 defina `ADS_SNIPPET` no `.env` com o HTML/JS do provedor escolhido (ex:
 Google AdSense). Se a variável estiver vazia (padrão), nenhum anúncio é
-exibido. O snippet aparece num espaço só, discreto e rotulado
-("Publicidade"), perto do rodapé em todas as páginas - nunca como popup
-ou interstitial.
+exibido. O mesmo snippet aparece em alguns espaços fixos e claramente
+rotulados ("Publicidade") - rodapé (todas as páginas), início da home
+(depois da busca, antes das listagens) e fim da ficha de produto/NCM
+(depois do conteúdo) - sempre fora do fluxo de leitura, nunca como popup,
+interstitial ou entre parágrafos de conteúdo.
 
 ## Baixar a base pública
 
@@ -185,6 +187,7 @@ então também dá para copiar `data/public.sqlite3` diretamente.
 | POST   | `/products`                         | conta | Cria um produto                                      |
 | PUT    | `/products/{id}`                     | conta | Atualiza campos de um produto                        |
 | POST   | `/identifiers`                      | conta | Anexa um identificador a um produto                  |
+| PUT    | `/identifiers/{id}`                  | conta | Corrige tipo/valor de um identificador existente     |
 | DELETE | `/identifiers/{id}`                  | conta | Remove um identificador                              |
 | GET    | `/fiscal-rules?ncm=&uf=&country=&date=` | não | Resolve a regra fiscal vigente mais específica (país padrão `BR`) |
 | GET    | `/fiscal-rules/history?ncm=&country=` | não | Todas as regras já cadastradas para um NCM           |

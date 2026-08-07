@@ -112,6 +112,35 @@ def test_duplicate_identifier_conflicts(client, trusted_headers):
     assert res.status_code == 400
 
 
+def test_update_identifier_value(client, trusted_headers):
+    product_id = client.post("/products", json=make_product_payload(), headers=trusted_headers).json()["id"]
+    identifier_id = client.post(
+        "/identifiers",
+        json={"product_id": product_id, "type": "gtin13", "value": "7891149100104", "reason": "cadastro"},
+        headers=trusted_headers,
+    ).json()["id"]
+
+    res = client.put(
+        f"/identifiers/{identifier_id}",
+        json={"value": "7891149100999", "reason": "corrigindo digito"},
+        headers=trusted_headers,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["value"] == "7891149100999"
+
+
+def test_update_identifier_empty_payload_rejected(client, trusted_headers):
+    product_id = client.post("/products", json=make_product_payload(), headers=trusted_headers).json()["id"]
+    identifier_id = client.post(
+        "/identifiers",
+        json={"product_id": product_id, "type": "gtin13", "value": "7891149100104", "reason": "cadastro"},
+        headers=trusted_headers,
+    ).json()["id"]
+
+    res = client.put(f"/identifiers/{identifier_id}", json={"reason": "nada pra mudar"}, headers=trusted_headers)
+    assert res.status_code == 400
+
+
 def test_search_page_size_is_capped(client, trusted_headers):
     for i in range(12):
         client.post(

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from sqlalchemy import or_
 from sqlalchemy.orm import Session as DbSession
 
@@ -14,6 +14,7 @@ from app.schemas import (
     IdentifierCreate,
     IdentifierDelete,
     IdentifierOut,
+    IdentifierUpdate,
     ProductCreate,
     ProductList,
     ProductOut,
@@ -128,6 +129,28 @@ def create_identifier(
         propose_or_apply, db_public, db_community, user, "identifier", None, data, payload.reason
     )
     return write_response(result, 201, IdentifierOut)
+
+
+@router.put("/identifiers/{identifier_id}", status_code=200)
+@limiter.limit(settings.rate_limit_write)
+def update_identifier(
+    request: Request,
+    identifier_id: int,
+    payload: IdentifierUpdate,
+    db_public: DbSession = Depends(get_public_db),
+    db_community: DbSession = Depends(get_community_db),
+    user: User = Depends(require_user),
+):
+    get_or_404(db_public, ProductIdentifier, identifier_id, "Identificador")
+    data = payload.model_dump(mode="json", exclude={"reason"}, exclude_unset=True)
+    if not data:
+        # payload vazio e reservado para o "apagar" do dispatch_apply -
+        # ver app/changes.py::dispatch_apply.
+        raise HTTPException(status_code=400, detail="Informe type e/ou value para atualizar.")
+    result = apply_or_400(
+        propose_or_apply, db_public, db_community, user, "identifier", str(identifier_id), data, payload.reason
+    )
+    return write_response(result, 200, IdentifierOut)
 
 
 @router.delete("/identifiers/{identifier_id}", status_code=200)

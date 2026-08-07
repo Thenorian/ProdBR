@@ -18,6 +18,13 @@
 
   <div id="results" class="results"></div>
 
+  {% if ads_snippet %}
+    <div class="ad-slot ad-slot-inline">
+      <span class="ad-label">Publicidade</span>
+      {{ ads_snippet | safe }}
+    </div>
+  {% endif %}
+
   <h2 class="section-title">Produtos recentes por categoria</h2>
   <div id="portal" class="portal-grid"><p class="empty">Carregando...</p></div>
 

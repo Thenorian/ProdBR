@@ -222,8 +222,27 @@ function render(ncm, revisions) {
       </div>
 
       <h3 class="section-title">Regras fiscais${helpIcon("uf")}</h3>
-      ${fiscalRulesTable(ncm.fiscal_rules)}
-      <p class="form-hint">Regras fiscais são cadastradas via API (<code>POST /fiscal-rules</code>), separadas desta ficha.</p>
+      <div id="fiscal-table-wrap">${fiscalRulesTable(ncm.fiscal_rules)}</div>
+
+      <div id="fiscal-manage" hidden>
+        <div class="fiscal-manage-actions">
+          <button type="button" id="new-fiscal-btn" class="btn btn-sm btn-outline">+ Nova regra fiscal</button>
+          ${
+            ncm.fiscal_rules.length
+              ? `
+            <select id="edit-fiscal-select">
+              <option value="">Editar regra existente...</option>
+              ${ncm.fiscal_rules
+                .map((f) => `<option value="${f.id}">${escapeHtml(f.country)} · ${f.uf ? "UF " + escapeHtml(f.uf) : "Nacional"} · desde ${f.valid_from}</option>`)
+                .join("")}
+            </select>
+            <button type="button" id="edit-fiscal-btn" class="btn btn-sm btn-outline">Editar selecionada</button>`
+              : ""
+          }
+        </div>
+        <div id="fiscal-form-wrap"></div>
+      </div>
+      <p class="form-hint" id="fiscal-login-hint"><a href="/login">Entre</a> para cadastrar ou editar regras fiscais deste NCM.</p>
     </div>
 
     <div class="tab-panel" id="tab-products">
@@ -247,6 +266,7 @@ function render(ncm, revisions) {
   });
 
   wireEditing(ncm);
+  wireFiscalManagement(ncm);
 
   const initialTab = new URLSearchParams(window.location.search).get("tab");
   if (initialTab) {
@@ -357,6 +377,123 @@ function wireEditing(ncm) {
       showMessage(messageEl, "error", err.message);
     }
   });
+}
+
+const FISCAL_FIELDS = [
+  ["country", "País", "text", { maxlength: 2 }],
+  ["uf", "UF (vazio = nacional)", "text", { maxlength: 2 }],
+  ["cest", "CEST", "text", { maxlength: 7 }],
+  ["origin", "Origem (0-8)", "number", { min: 0, max: 8, step: 1 }],
+  ["icms_rate", "ICMS (%)", "number", { min: 0, max: 100, step: "0.01" }],
+  ["fcp_rate", "FCP (%)", "number", { min: 0, max: 100, step: "0.01" }],
+  ["icms_st_mva_rate", "MVA ICMS-ST (%)", "number", { min: 0, step: "0.01" }],
+  ["ipi_rate", "IPI (%)", "number", { min: 0, max: 100, step: "0.01" }],
+  ["ii_rate", "II (%)", "number", { min: 0, max: 100, step: "0.01" }],
+  ["pis_rate", "PIS (%)", "number", { min: 0, max: 100, step: "0.01" }],
+  ["cofins_rate", "COFINS (%)", "number", { min: 0, max: 100, step: "0.01" }],
+  ["cbs_rate", "CBS (%)", "number", { min: 0, max: 100, step: "0.01" }],
+  ["ibs_rate", "IBS (%)", "number", { min: 0, max: 100, step: "0.01" }],
+  ["valid_from", "Vigente desde", "date", { required: true }],
+  ["valid_until", "Vigente até (vazio = sem fim)", "date", {}],
+];
+
+function fiscalRuleFormHtml(rule) {
+  const v = (field, fallback = "") => (rule && rule[field] != null ? rule[field] : fallback);
+  const attrs = (extra) =>
+    Object.entries(extra)
+      .map(([k, val]) => (val === true ? k : `${k}="${val}"`))
+      .join(" ");
+  const fields = FISCAL_FIELDS.map(([name, label, type, extra]) => `
+      <div class="form-group">
+        <label>${label}</label>
+        <input name="${name}" type="${type}" value="${escapeHtml(String(v(name, name === "country" ? "BR" : "")))}" ${attrs(extra)} />
+      </div>`).join("");
+
+  return `
+    <form id="fiscal-form" class="fiscal-form">
+      <div class="form-grid">
+        ${fields}
+        <div class="form-group full">
+          <label>Fonte</label>
+          <input name="source" value="${escapeHtml(v("source"))}" required />
+        </div>
+        <div class="form-group full">
+          <label>Observações</label>
+          <textarea name="notes">${escapeHtml(v("notes"))}</textarea>
+        </div>
+        <div class="form-group full">
+          <label>Motivo da alteração *</label>
+          <input name="reason" required placeholder="Por que você está ${rule ? "mudando" : "cadastrando"} isso?" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-sm">${rule ? "Salvar regra fiscal" : "Cadastrar regra fiscal"}</button>
+        <button type="button" id="cancel-fiscal-form" class="btn btn-outline btn-sm">Cancelar</button>
+      </div>
+      <div class="form-message" id="fiscal-form-message" hidden></div>
+    </form>`;
+}
+
+function wireFiscalManagement(ncm) {
+  const manage = document.getElementById("fiscal-manage");
+  const hint = document.getElementById("fiscal-login-hint");
+  if (!isLoggedIn()) {
+    manage.hidden = true;
+    hint.hidden = false;
+    return;
+  }
+  manage.hidden = false;
+  hint.hidden = true;
+
+  const formWrap = document.getElementById("fiscal-form-wrap");
+  const newBtn = document.getElementById("new-fiscal-btn");
+  const editBtn = document.getElementById("edit-fiscal-btn");
+  const editSelect = document.getElementById("edit-fiscal-select");
+
+  newBtn.addEventListener("click", () => showFiscalForm(null));
+  editBtn?.addEventListener("click", () => {
+    const id = editSelect.value;
+    if (!id) return;
+    const rule = ncm.fiscal_rules.find((f) => String(f.id) === id);
+    showFiscalForm(rule);
+  });
+
+  function showFiscalForm(rule) {
+    formWrap.innerHTML = fiscalRuleFormHtml(rule);
+    const form = document.getElementById("fiscal-form");
+    const messageEl = document.getElementById("fiscal-form-message");
+    document.getElementById("cancel-fiscal-form").addEventListener("click", () => {
+      formWrap.innerHTML = "";
+    });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      const payload = { reason: data.reason, ncm: ncmCode, source: data.source, notes: data.notes || null };
+      for (const [name] of FISCAL_FIELDS) {
+        payload[name] = data[name] === "" ? null : data[name];
+      }
+      const url = rule ? `/fiscal-rules/${rule.id}` : "/fiscal-rules";
+      const method = rule ? "PUT" : "POST";
+      try {
+        const res = await authFetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const body = await res.json();
+        if (res.status === 202) {
+          showMessage(messageEl, "success", "Reputação insuficiente para aplicar direto — enviado para moderação.");
+        } else if (res.ok) {
+          showMessage(messageEl, "success", "Regra fiscal salva. Recarregando...");
+          setTimeout(loadNcm, 900);
+        } else {
+          showMessage(messageEl, "error", body.detail ? JSON.stringify(body.detail) : "Erro ao enviar.");
+        }
+      } catch (err) {
+        showMessage(messageEl, "error", err.message);
+      }
+    });
+  }
 }
 
 function showMessage(el, kind, text) {

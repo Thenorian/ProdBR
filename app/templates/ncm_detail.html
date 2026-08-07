@@ -4,6 +4,13 @@
   <div id="ncm-root">
     <p class="empty">Carregando NCM...</p>
   </div>
+
+  {% if ads_snippet %}
+    <div class="ad-slot ad-slot-inline">
+      <span class="ad-label">Publicidade</span>
+      {{ ads_snippet | safe }}
+    </div>
+  {% endif %}
 {% endblock %}
 {% block scripts %}
   <script>window.NCM_CODE = {{ ncm_code | tojson }};</script>

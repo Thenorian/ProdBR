@@ -50,10 +50,13 @@ function field(label, name, value, helpKey, extraAttrs = "", full = false) {
 function identifierRow(i) {
   const typeLabel = IDENTIFIER_TYPES.find((t) => t[0] === i.type)?.[1] || i.type;
   return `
-    <tr data-id-row="${i.id}">
+    <tr data-id-row="${i.id}" data-type="${escapeHtml(i.type)}" data-value="${escapeHtml(i.value)}">
       <td>${escapeHtml(typeLabel)}</td>
       <td><code>${escapeHtml(i.value)}</code></td>
-      <td class="edit-only"><button type="button" class="remove-id-btn" data-remove-id="${i.id}">remover</button></td>
+      <td class="edit-only id-row-actions">
+        <button type="button" class="btn-link" data-edit-id="${i.id}">editar</button>
+        <button type="button" class="btn-link remove-id-btn" data-remove-id="${i.id}">remover</button>
+      </td>
     </tr>`;
 }
 
@@ -140,7 +143,7 @@ function render(product, fiscal, revisions) {
             <h3 class="section-title">Dados fiscais${helpIcon("ncm")}</h3>
             <table class="fiscal-table">${fiscalRows(fiscal)}</table>
             <p class="form-hint">
-              Regras fiscais são compartilhadas por NCM e editadas via API separadamente (não aqui, na ficha do produto).
+              Regras fiscais são compartilhadas por NCM e editadas na ficha do NCM, não aqui na ficha do produto.
               ${product.ncm ? `<a href="/view/ncm/${encodeURIComponent(product.ncm)}">Ver ficha completa do NCM ${escapeHtml(product.ncm)} →</a>` : ""}
             </p>
 
@@ -257,6 +260,41 @@ function wireEditing(product) {
   root.querySelectorAll("[data-remove-id]").forEach((btn) => {
     btn.addEventListener("click", () => startRemoveIdentifier(btn));
   });
+  root.querySelectorAll("[data-edit-id]").forEach((btn) => {
+    btn.addEventListener("click", () => startEditIdentifier(btn));
+  });
+
+  function startEditIdentifier(btn) {
+    const row = btn.closest("tr");
+    const idId = btn.dataset.editId;
+    const currentType = row.dataset.type;
+    const currentValue = row.dataset.value;
+    row.innerHTML = `
+      <td>
+        <select class="edit-id-type">
+          ${IDENTIFIER_TYPES.map(([v, l]) => `<option value="${v}" ${v === currentType ? "selected" : ""}>${l}</option>`).join("")}
+        </select>
+      </td>
+      <td><input class="edit-id-value" value="${escapeHtml(currentValue)}" /></td>
+      <td class="edit-only id-row-actions">
+        <div class="inline-remove-form">
+          <input type="text" placeholder="motivo" class="edit-id-reason-input" />
+          <button type="button" class="btn-link confirm-edit-id-btn">salvar</button>
+          <button type="button" class="btn-link cancel-edit-id-btn">cancelar</button>
+        </div>
+      </td>`;
+    row.querySelector(".cancel-edit-id-btn").addEventListener("click", () => render(product, currentFiscal, currentRevisions));
+    row.querySelector(".confirm-edit-id-btn").addEventListener("click", async () => {
+      const type = row.querySelector(".edit-id-type").value;
+      const value = row.querySelector(".edit-id-value").value.trim();
+      const reason = row.querySelector(".edit-id-reason-input").value.trim() || "Identificador corrigido";
+      if (!value) {
+        showMessage(messageEl, "error", "Informe o código do identificador.");
+        return;
+      }
+      await submitContribution(`/identifiers/${idId}`, "PUT", { type, value, reason }, messageEl);
+    });
+  }
 
   function startRemoveIdentifier(btn) {
     const row = btn.closest("tr");

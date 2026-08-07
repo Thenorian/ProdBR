@@ -173,6 +173,39 @@ def apply_identifier_create(db_public: DbSession, payload: dict, contributor: st
     return identifier
 
 
+def apply_identifier_update(db_public: DbSession, identifier_id: int, payload: dict, contributor: str | None, reason: str):
+    identifier = db_public.get(ProductIdentifier, identifier_id)
+    if identifier is None:
+        raise ValueError(f"Identificador {identifier_id} nao encontrado.")
+    for field in ("type", "value"):
+        if field not in payload or payload[field] is None:
+            continue
+        new_value = payload[field]
+        old_value = getattr(identifier, field)
+        if old_value == new_value:
+            continue
+        setattr(identifier, field, new_value)
+        db_public.add(
+            Revision(
+                entity_type="identifier",
+                entity_id=str(identifier.id),
+                contributor=contributor,
+                action="update",
+                field=field,
+                old_value=json.dumps(old_value),
+                new_value=json.dumps(new_value),
+                reason=reason,
+            )
+        )
+    try:
+        db_public.commit()
+    except IntegrityError as exc:
+        db_public.rollback()
+        raise ValueError(f"Identificador '{payload.get('value')}' ja pertence a outro produto.") from exc
+    db_public.refresh(identifier)
+    return identifier
+
+
 def apply_identifier_delete(db_public: DbSession, identifier_id: int, contributor: str | None, reason: str):
     identifier = db_public.get(ProductIdentifier, identifier_id)
     if identifier is None:
@@ -197,11 +230,16 @@ def apply_identifier_delete(db_public: DbSession, identifier_id: int, contributo
 
 def dispatch_apply(db_public: DbSession, entity_type: str, entity_id: str | None, payload: dict, contributor: str | None, reason: str):
     """Aplica uma mudanca ja aprovada (auto ou por moderador). Retorna a
-    entidade resultante (None para delete de identificador)."""
+    entidade resultante (None para delete de identificador).
+
+    Delete de identificador sempre chega com payload vazio (ver
+    DELETE /identifiers/{id}) - e o que diferencia de um update aqui."""
     if entity_type == "identifier":
         if entity_id is None:
             return apply_identifier_create(db_public, payload, contributor, reason)
-        return apply_identifier_delete(db_public, int(entity_id), contributor, reason)
+        if not payload:
+            return apply_identifier_delete(db_public, int(entity_id), contributor, reason)
+        return apply_identifier_update(db_public, int(entity_id), payload, contributor, reason)
     return apply_entity_change(db_public, entity_type, entity_id, payload, contributor, reason)
 
 

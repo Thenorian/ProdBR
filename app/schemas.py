@@ -72,6 +72,12 @@ class IdentifierCreate(BaseModel):
     reason: str = REASON
 
 
+class IdentifierUpdate(BaseModel):
+    type: str | None = Field(None, description=f"Um de: {', '.join(IDENTIFIER_TYPES)}")
+    value: str | None = Field(None, min_length=1, max_length=64)
+    reason: str = REASON
+
+
 class IdentifierDelete(BaseModel):
     reason: str = REASON
 
