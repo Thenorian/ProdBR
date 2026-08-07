@@ -85,6 +85,13 @@ class FiscalRule(PublicBase):
     uf=None significa regra nacional/default, usada quando nao ha regra
     especifica para o estado consultado. Ver app/fiscal.py para a
     resolucao (mais especifica + vigente na data pedida).
+
+    `country` existe porque o NCM e uma nomenclatura do Mercosul (Brasil,
+    Argentina, Paraguai, Uruguai compartilham o mesmo codigo de 8 digitos
+    e sua descricao - ver NcmClassification), mas cada pais tributa essa
+    classificacao com tributos proprios. Hoje so ha dados fiscais do
+    Brasil (`country="BR"`), mas o schema ja fica pronto para os demais
+    membros do bloco sem precisar de migracao futura.
     """
 
     __tablename__ = "fiscal_rules"
@@ -92,6 +99,7 @@ class FiscalRule(PublicBase):
     id: Mapped[int] = mapped_column(primary_key=True)
     ncm: Mapped[str] = mapped_column(String(8), index=True)
     cest: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    country: Mapped[str] = mapped_column(String(2), default="BR", index=True)
     uf: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     # Codigo de origem da mercadoria (tabela ICMS - Origem, 0 a 8).
@@ -104,12 +112,51 @@ class FiscalRule(PublicBase):
     # Reforma tributaria (EC 132/2023).
     cbs_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     ibs_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Imposto de Importacao - federal, aliquota-base definida pela TEC
+    # (Tarifa Externa Comum do Mercosul), com listas de excecao por pais.
+    ii_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Fundo de Combate a Pobreza - adicional estadual sobre o ICMS.
+    fcp_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Margem de Valor Agregado usada no calculo do ICMS-ST, quando houver.
+    icms_st_mva_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Espaco livre para particularidades do regime (monofasico, isencao,
+    # reducao de base de calculo etc.) que nao valem um campo dedicado.
+    notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     valid_from: Mapped[date] = mapped_column(Date)
     valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     source: Mapped[str] = mapped_column(String(120))
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class NcmClassification(PublicBase):
+    """A classificacao fiscal em si (o NCM), independente de qualquer
+    produto - descricao oficial, hierarquia e afins. E a nomenclatura
+    compartilhada por todo o Mercosul (mesmo codigo/descricao em Brasil,
+    Argentina, Paraguai e Uruguai, salvo raras notas nacionais), por isso
+    nao tem `country`: quem varia por pais e a tributacao (FiscalRule),
+    nao a classificacao.
+
+    Existe para permitir consultar "o que e e quanto pesa" um NCM sem
+    precisar de um produto cadastrado - produtos continuam sendo a
+    entidade principal, isso e so um catalogo de apoio.
+    """
+
+    __tablename__ = "ncm_classifications"
+
+    ncm: Mapped[str] = mapped_column(String(8), primary_key=True)
+    description: Mapped[str] = mapped_column(String(500))
+    # Dois primeiros digitos do NCM, para navegacao/agrupamento (ex: "22"
+    # = bebidas). Redundante com `ncm` de proposito - evita recalcular na
+    # leitura toda hora.
+    chapter: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    # Unidade estatistica de comercio exterior (Siscomex), ex: "UN", "KG".
+    unit: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    source: Mapped[str] = mapped_column(String(120))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class Revision(PublicBase):

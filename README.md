@@ -9,23 +9,49 @@ uma das formas de acessá-la.
 
 Dado um código de barras, GTIN ou outro identificador, a base devolve a
 identificação do produto (nome, marca, NCM/CEST, categoria...) e, à parte,
-as regras fiscais de referência (ICMS, IPI, PIS, COFINS, CBS/IBS) por UF e
-vigência. **Não é salvo preço, custo ou fornecedor.**
+as regras fiscais de referência (ICMS + FCP + MVA-ST, IPI, PIS, COFINS,
+II, CBS/IBS) por país, UF e vigência. **Não é salvo preço, custo ou
+fornecedor.**
 
 ## Arquitetura
 
-### Produto e dados fiscais são entidades separadas
+### Produto, NCM e regras fiscais são três entidades separadas
 
-A legislação tributária muda com frequência e varia por estado — o
-cadastro do produto não pode ficar refém disso. Por isso:
+A legislação tributária muda com frequência e varia por estado (e por
+país, no caso do Mercosul) — o cadastro do produto não pode ficar refém
+disso. Por isso:
 
 - **Product**: identificação (`prod_xxxxxxxxxxxx`, nome, marca, NCM/CEST
   "atuais", categoria, fabricante, fonte). Não guarda alíquota nenhuma.
-- **FiscalRule**: alíquotas chaveadas por **NCM + CEST + UF + vigência**,
-  não pelo produto. Dois produtos com o mesmo NCM compartilham a mesma
-  regra automaticamente — é a lei que tributa a classificação fiscal, não
-  o SKU específico. `uf=null` é a regra nacional/default, usada quando não
-  há regra específica para o estado consultado.
+- **NcmClassification**: o NCM em si — descrição oficial (TIPI/Mercosul),
+  capítulo, unidade estatística — consultável (`/ncm/{codigo}`) mesmo sem
+  nenhum produto usando essa classificação. É o catálogo de apoio; o
+  produto continua sendo a entidade principal do projeto.
+- **FiscalRule**: alíquotas chaveadas por **NCM + CEST + país + UF +
+  vigência**, não pelo produto. Dois produtos com o mesmo NCM
+  compartilham a mesma regra automaticamente — é a lei que tributa a
+  classificação fiscal, não o SKU específico. `uf=null` é a regra
+  nacional/default, usada quando não há regra específica para o estado
+  consultado.
+
+### Escopo Mercosul
+
+O NCM (Nomenclatura Comum do Mercosul) é compartilhado por Brasil,
+Argentina, Paraguai e Uruguai — por isso `NcmClassification` não tem
+campo de país: o código e a descrição são os mesmos no bloco todo. Já a
+tributação sobre essa classificação é decidida por cada país-membro, e
+por isso toda `FiscalRule` tem um campo `country` (ISO 3166-1 alpha-2,
+padrão `"BR"`). Hoje só há dados fiscais do Brasil — o schema já está
+pronto para os demais membros sem precisar de migração.
+
+### Tributos cobertos (Brasil)
+
+Além de ICMS/IPI/PIS/COFINS, `FiscalRule` também registra: **FCP** (Fundo
+de Combate à Pobreza, adicional estadual do ICMS), **MVA** do ICMS-ST,
+**II** (Imposto de Importação — alíquota-base é a TEC do Mercosul), e
+**CBS/IBS** (Reforma Tributária, EC 132/2023). Um campo livre `notes`
+cobre particularidades do regime (isenção, monofásico, redução de base de
+cálculo etc.) sem precisar de um campo dedicado para cada caso.
 
 ### Identificadores flexíveis
 
@@ -91,6 +117,8 @@ uvicorn app.main:app --reload
 ```
 
 A API sobe em `http://localhost:8000`. Página de pesquisa manual em `/`,
+classificações NCM em `/view/ncm`, página institucional (o que é o
+projeto, licenciamento, ranking de contribuidores) em `/about`,
 documentação interativa (OpenAPI/Swagger) em `/docs`.
 
 ### Criar uma conta e contribuir
@@ -132,9 +160,9 @@ ou interstitial.
 ## Baixar a base pública
 
 `GET /export/sqlite`, `/export/sql` ou `/export/csv` — sempre só com
-produtos/identificadores/regras fiscais/revisões, nunca com dados de
-comunidade. O arquivo SQLite é o próprio banco em uso, então também dá
-para copiar `data/public.sqlite3` diretamente.
+produtos/identificadores/classificações NCM/regras fiscais/revisões,
+nunca com dados de comunidade. O arquivo SQLite é o próprio banco em uso,
+então também dá para copiar `data/public.sqlite3` diretamente.
 
 ## Regras de negócio
 
@@ -158,13 +186,18 @@ para copiar `data/public.sqlite3` diretamente.
 | PUT    | `/products/{id}`                     | conta | Atualiza campos de um produto                        |
 | POST   | `/identifiers`                      | conta | Anexa um identificador a um produto                  |
 | DELETE | `/identifiers/{id}`                  | conta | Remove um identificador                              |
-| GET    | `/fiscal-rules?ncm=&uf=&date=`      | não   | Resolve a regra fiscal vigente mais específica       |
-| GET    | `/fiscal-rules/history?ncm=`        | não   | Todas as regras já cadastradas para um NCM           |
+| GET    | `/fiscal-rules?ncm=&uf=&country=&date=` | não | Resolve a regra fiscal vigente mais específica (país padrão `BR`) |
+| GET    | `/fiscal-rules/history?ncm=&country=` | não | Todas as regras já cadastradas para um NCM           |
 | GET    | `/products/{id}/fiscal`             | não   | Regra fiscal resolvida a partir do NCM do produto    |
 | POST   | `/fiscal-rules`                      | conta | Cria uma regra fiscal                                |
 | PUT    | `/fiscal-rules/{id}`                 | conta | Atualiza uma regra fiscal                            |
+| GET    | `/ncm?q=`                            | não   | Busca classificações NCM por código ou descrição      |
+| GET    | `/ncm/{codigo}`                      | não   | Ficha do NCM: descrição + regras fiscais + nº de produtos |
+| POST   | `/ncm`                               | conta | Cadastra uma classificação NCM                        |
+| PUT    | `/ncm/{codigo}`                      | conta | Atualiza uma classificação NCM                        |
 | GET    | `/revisions`                        | não   | Histórico global de alterações                       |
 | GET    | `/products/{id}/revisions`           | não   | Histórico de um produto                              |
+| GET    | `/users`                             | não   | Ranking público de contribuidores por reputação       |
 | GET    | `/users/{username}`                 | não   | Perfil público (reputação, papel — sem e-mail)        |
 | POST   | `/auth/register`                    | não   | Cria conta + chave de API pessoal                     |
 | POST   | `/auth/login`                       | não   | Login (retorna token de sessão)                       |

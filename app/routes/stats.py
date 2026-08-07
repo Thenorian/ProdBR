@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.config import settings
 from app.database import get_public_db
-from app.models_public import FiscalRule, Product, ProductIdentifier, Revision
+from app.models_public import FiscalRule, NcmClassification, Product, ProductIdentifier, Revision
 from app.rate_limit import limiter
 
 router = APIRouter(tags=["stats"])
@@ -17,5 +17,6 @@ def get_stats(request: Request, db: DbSession = Depends(get_public_db)):
         "products": db.query(Product).count(),
         "identifiers": db.query(ProductIdentifier).count(),
         "fiscal_rules": db.query(FiscalRule).count(),
+        "ncm_classifications": db.query(NcmClassification).count(),
         "revisions": db.query(Revision).count(),
     }

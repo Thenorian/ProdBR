@@ -10,7 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from app.config import settings
 from app.database import CommunityBase, PublicBase, community_engine, public_engine
 from app.rate_limit import limiter
-from app.routes import auth, export, fiscal, moderation, products, revisions, stats, users
+from app.routes import auth, export, fiscal, moderation, ncm, products, revisions, stats, users
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
@@ -22,11 +22,13 @@ app = FastAPI(
     title="ProdBR API",
     description=(
         "Base publica e colaborativa de produtos brasileiros: identificacao "
-        "(GTIN e outros codigos), classificacao (NCM/CEST) e regras fiscais "
-        "de referencia (ICMS, IPI, PIS, COFINS, CBS/IBS) por UF e vigencia. "
-        "Sem precos, custos ou fornecedores. Toda alteracao gera uma revisao "
-        "publica rastreavel. Software sob AGPLv3, dados sob ODbL v1.0 - "
-        "ver LICENSE e DATA_LICENSE."
+        "(GTIN e outros codigos), classificacao NCM (nomenclatura do "
+        "Mercosul, consultavel independente de produto em /ncm) e regras "
+        "fiscais de referencia (ICMS+FCP+MVA-ST, IPI, PIS, COFINS, II, "
+        "CBS/IBS) por pais, UF e vigencia. Sem precos, custos ou "
+        "fornecedores. Toda alteracao gera uma revisao publica rastreavel. "
+        "Software sob AGPLv3, dados sob ODbL v1.0 - ver LICENSE e "
+        "DATA_LICENSE."
     ),
     version="0.2.0",
 )
@@ -36,6 +38,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(products.router)
 app.include_router(fiscal.router)
+app.include_router(ncm.router)
 app.include_router(revisions.router)
 app.include_router(auth.router)
 app.include_router(users.router)
@@ -79,6 +82,26 @@ def product_page(request: Request, product_id: str):
     return templates.TemplateResponse(
         "product_detail.html", {"request": request, "product_id": product_id}
     )
+
+
+@app.get("/view/ncm", response_class=HTMLResponse, include_in_schema=False)
+def ncm_search_page(request: Request):
+    return templates.TemplateResponse("ncm_search.html", {"request": request})
+
+
+@app.get("/view/ncm/{code}", response_class=HTMLResponse, include_in_schema=False)
+def ncm_detail_page(request: Request, code: str):
+    return templates.TemplateResponse("ncm_detail.html", {"request": request, "ncm_code": code})
+
+
+@app.get("/about", response_class=HTMLResponse, include_in_schema=False)
+def about_page(request: Request):
+    return templates.TemplateResponse("about.html", {"request": request})
+
+
+@app.get("/account", response_class=HTMLResponse, include_in_schema=False)
+def account_page(request: Request):
+    return templates.TemplateResponse("account.html", {"request": request})
 
 
 @app.get("/license", include_in_schema=False)

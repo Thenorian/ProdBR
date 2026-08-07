@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.config import settings
 from app.database import get_public_db
-from app.models_public import FiscalRule, Product, ProductIdentifier, Revision
+from app.models_public import FiscalRule, NcmClassification, Product, ProductIdentifier, Revision
 from app.rate_limit import limiter
 from app.schemas import RevisionOut
 
@@ -35,6 +35,11 @@ def _entity_names(db: DbSession, revisions: list[Revision]) -> dict[str, str]:
         int_ids = [int(i) for i in fiscal_ids if i.isdigit()]
         for f in db.query(FiscalRule).filter(FiscalRule.id.in_(int_ids)).all():
             names[f"fiscal_rule:{f.id}"] = f"NCM {f.ncm}"
+
+    ncm_codes = ids_by_type.get("ncm_classification")
+    if ncm_codes:
+        for n in db.query(NcmClassification).filter(NcmClassification.ncm.in_(ncm_codes)).all():
+            names[f"ncm_classification:{n.ncm}"] = f"NCM {n.ncm}"
 
     return names
 

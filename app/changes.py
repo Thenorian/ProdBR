@@ -14,9 +14,9 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.config import settings
 from app.models_community import PendingChange, User
-from app.models_public import FiscalRule, Product, ProductIdentifier, Revision
+from app.models_public import FiscalRule, NcmClassification, Product, ProductIdentifier, Revision
 
-ENTITY_MODELS = {"product": Product, "fiscal_rule": FiscalRule}
+ENTITY_MODELS = {"product": Product, "fiscal_rule": FiscalRule, "ncm_classification": NcmClassification}
 
 WRITABLE_FIELDS = {
     "product": [
@@ -33,6 +33,7 @@ WRITABLE_FIELDS = {
     "fiscal_rule": [
         "ncm",
         "cest",
+        "country",
         "uf",
         "origin",
         "icms_rate",
@@ -41,14 +42,25 @@ WRITABLE_FIELDS = {
         "cofins_rate",
         "cbs_rate",
         "ibs_rate",
+        "ii_rate",
+        "fcp_rate",
+        "icms_st_mva_rate",
+        "notes",
         "valid_from",
         "valid_until",
         "source",
     ],
+    # "ncm" so entra aqui porque na criacao ele e a propria chave primaria
+    # (fornecida pelo contribuidor, nao gerada pelo sistema como
+    # Product.id) - por isso NcmUpdate nao expoe esse campo, so criacao.
+    "ncm_classification": ["ncm", "description", "chapter", "unit", "source"],
 }
 
 DATE_FIELDS = {"fiscal_rule": {"valid_from", "valid_until"}}
 INT_PK_ENTITIES = {"fiscal_rule"}
+# Nome do atributo de chave primaria de cada entidade - "id" pra maioria,
+# mas ncm_classification usa o proprio codigo NCM como chave.
+PK_ATTR = {"ncm_classification": "ncm"}
 
 
 def _coerce(entity_type: str, field: str, value):
@@ -82,13 +94,18 @@ def apply_entity_change(
         kwargs = {f: _coerce(entity_type, f, payload[f]) for f in fields if f in payload}
         entity = model(**kwargs)
         db_public.add(entity)
-        db_public.flush()
+        try:
+            db_public.flush()
+        except IntegrityError as exc:
+            db_public.rollback()
+            raise ValueError(f"{entity_type} ja existe ou viola uma restricao unica.") from exc
+        pk_value = getattr(entity, PK_ATTR.get(entity_type, "id"))
         for field in fields:
             if field in payload and payload[field] is not None:
                 db_public.add(
                     Revision(
                         entity_type=entity_type,
-                        entity_id=str(entity.id),
+                        entity_id=str(pk_value),
                         contributor=contributor,
                         action="create",
                         field=field,
@@ -102,6 +119,7 @@ def apply_entity_change(
         entity = db_public.get(model, pk)
         if entity is None:
             raise ValueError(f"{entity_type} '{entity_id}' nao encontrado.")
+        pk_value = getattr(entity, PK_ATTR.get(entity_type, "id"))
         for field, raw_value in payload.items():
             if field not in fields:
                 continue
@@ -113,7 +131,7 @@ def apply_entity_change(
             db_public.add(
                 Revision(
                     entity_type=entity_type,
-                    entity_id=str(entity.id),
+                    entity_id=str(pk_value),
                     contributor=contributor,
                     action="update",
                     field=field,

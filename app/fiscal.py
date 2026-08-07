@@ -7,15 +7,23 @@ from app.models_public import FiscalRule
 
 
 def resolve_fiscal_rule(
-    db: DbSession, ncm: str, uf: str | None, on_date: date, cest: str | None = None
+    db: DbSession,
+    ncm: str,
+    uf: str | None,
+    on_date: date,
+    cest: str | None = None,
+    country: str = "BR",
 ) -> FiscalRule | None:
     """Regra fiscal mais especifica e vigente para o NCM (+CEST opcional)
-    na UF e data pedidas. Regras com uf/cest nulos sao "nacional/default"
-    e servem de fallback quando nao ha regra especifica para o estado.
+    na UF e data pedidas, dentro do pais informado (`country`, padrao
+    "BR" - o NCM e do Mercosul, mas cada pais membro tributa com suas
+    proprias regras). Regras com uf/cest nulos sao "nacional/default" e
+    servem de fallback quando nao ha regra especifica para o estado.
     """
     query = (
         db.query(FiscalRule)
         .filter(FiscalRule.ncm == ncm)
+        .filter(FiscalRule.country == country)
         .filter(FiscalRule.valid_from <= on_date)
         .filter(or_(FiscalRule.valid_until.is_(None), FiscalRule.valid_until >= on_date))
     )

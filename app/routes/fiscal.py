@@ -24,12 +24,16 @@ def get_fiscal_rule(
     ncm: str,
     uf: str | None = None,
     cest: str | None = None,
+    country: str = "BR",
     on_date: date | None = None,
     db: DbSession = Depends(get_public_db),
 ):
     """Resolve a regra fiscal mais especifica e vigente para o NCM (e UF,
-    se informada) na data pedida (padrao: hoje)."""
-    rule = resolve_fiscal_rule(db, ncm.strip(), uf.strip().upper() if uf else None, on_date or date.today(), cest)
+    se informada) na data pedida (padrao: hoje). `country` seleciona o
+    pais do Mercosul (padrao "BR" - unico com dados fiscais hoje)."""
+    rule = resolve_fiscal_rule(
+        db, ncm.strip(), uf.strip().upper() if uf else None, on_date or date.today(), cest, country.strip().upper()
+    )
     if rule is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhuma regra fiscal vigente para esse NCM/UF/data.")
     return rule
@@ -41,15 +45,19 @@ def fiscal_rule_history(
     request: Request,
     ncm: str,
     uf: str | None = None,
+    country: str | None = None,
     limit: int = settings.max_page_size,
     db: DbSession = Depends(get_public_db),
 ):
     """Todas as regras cadastradas para um NCM (opcionalmente filtrando por
-    UF), mais recentes primeiro - para auditoria de mudanca de aliquota."""
+    UF e/ou pais), mais recentes primeiro - para auditoria de mudanca de
+    aliquota. Sem `country`, traz de todos os paises ja cadastrados."""
     limit = max(1, min(limit, settings.max_page_size))
     query = db.query(FiscalRule).filter(FiscalRule.ncm == ncm.strip())
     if uf:
         query = query.filter(FiscalRule.uf == uf.strip().upper())
+    if country:
+        query = query.filter(FiscalRule.country == country.strip().upper())
     return query.order_by(FiscalRule.valid_from.desc()).limit(limit).all()
 
 
@@ -59,12 +67,18 @@ def get_product_fiscal_rule(
     request: Request,
     product_id: str,
     uf: str | None = None,
+    country: str = "BR",
     on_date: date | None = None,
     db: DbSession = Depends(get_public_db),
 ):
     product = get_or_404(db, Product, product_id, "Produto")
     rule = resolve_fiscal_rule(
-        db, product.ncm, uf.strip().upper() if uf else None, on_date or date.today(), product.cest
+        db,
+        product.ncm,
+        uf.strip().upper() if uf else None,
+        on_date or date.today(),
+        product.cest,
+        country.strip().upper(),
     )
     if rule is None:
         raise HTTPException(
