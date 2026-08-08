@@ -25,6 +25,18 @@
 
   <div id="results" class="results"></div>
 
+  <div class="about-section">
+    <h2 class="section-title">Sobre o projeto</h2>
+    <p>
+      O ProdBR é uma base aberta de identificação de produtos brasileiros: dado um código de barras, GTIN ou NCM,
+      ela devolve nome, marca, categoria e a classificação fiscal do produto — e, à parte, as alíquotas de referência
+      (ICMS, IPI, PIS, COFINS, CBS/IBS e mais) aplicáveis a essa classificação. Existe pra evitar que cada sistema
+      precise descobrir do zero qual é o NCM e a tributação de um produto: cadastre uma vez, todo mundo com o mesmo
+      NCM se beneficia. Mantido pela Thenorian, mas aberto — qualquer pessoa pode consultar, contribuir ou hospedar
+      sua própria cópia. <a href="/about">Leia mais sobre o projeto →</a>
+    </p>
+  </div>
+
   {% if ads_snippet %}
     <div class="ad-slot ad-slot-inline">
       <span class="ad-label">Publicidade</span>
@@ -32,11 +44,38 @@
     </div>
   {% endif %}
 
+  <h2 class="section-title">Últimos cadastrados</h2>
+  <div id="latest" class="results"><p class="empty">Carregando...</p></div>
+
   <h2 class="section-title">Produtos recentes por categoria</h2>
   <div id="portal" class="portal-grid"><p class="empty">Carregando...</p></div>
 
   <h2 class="section-title">Mudanças recentes</h2>
   <div id="changes" class="changes-list"><p class="empty">Carregando...</p></div>
+
+  <div class="about-section">
+    <h2 class="section-title">Como usar a API</h2>
+    <p>
+      Toda leitura é pública, sem autenticação. Pra contribuir (cadastrar ou editar), crie uma conta e use a chave
+      de API pessoal (mostrada uma única vez no cadastro — veja <a href="/account">Minha conta</a> se precisar gerar
+      uma nova) no header <code>X-API-Key</code>:
+    </p>
+    <pre class="code-block">curl "https://sua-instancia/products?ncm=22030000"
+
+curl -X POST "https://sua-instancia/products" \
+  -H "X-API-Key: SUA_CHAVE_AQUI" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Cerveja 600ml","ncm":"22030000","source":"fabricante","reason":"cadastro inicial"}'</pre>
+    <p class="form-hint">
+      Documentação interativa completa (todos os endpoints, testável direto no navegador) em
+      <a href="/docs" target="_blank" rel="noopener">/docs</a> (Swagger).
+    </p>
+  </div>
+
+  <div class="about-section">
+    <h2 class="section-title">Bibliografia — o que significa cada sigla</h2>
+    <dl id="glossary" class="glossary-grid"></dl>
+  </div>
 {% endblock %}
 {% block scripts %}
   <script src="/static/home.js"></script>

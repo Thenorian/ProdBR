@@ -778,6 +778,29 @@ code { font-family: ui-monospace, "Courier New", monospace; }
   overflow-x: auto;
   margin: .7rem 0;
 }
+
+.ncm-preview-card {
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border-light));
+  background: color-mix(in srgb, var(--accent) 6%, var(--card-bg));
+  border-radius: var(--radius-md);
+  padding: .8rem 1rem;
+  font-size: .88rem;
+  line-height: 1.5;
+}
+.ncm-preview-card .badge { margin-left: .5rem; }
+.ncm-preview-card .form-hint { margin-top: .4rem; }
+
+.code-block {
+  background: var(--hover-bg);
+  border: 1px solid var(--border-light);
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-md);
+  font-size: .82rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+  font-family: ui-monospace, "Courier New", monospace;
+}
 .mod-actions { display: flex; gap: .6rem; margin-top: .8rem; align-items: center; }
 
 /* Small avatar (nav corner only) */
@@ -849,6 +872,20 @@ code { font-family: ui-monospace, "Courier New", monospace; }
 .about-section p { line-height: 1.6; font-size: .93rem; }
 .about-list { line-height: 1.6; font-size: .93rem; padding-left: 1.3rem; }
 .about-list li { margin-bottom: .45rem; }
+
+.glossary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem 1.5rem;
+  margin: 0;
+}
+.glossary-grid dt {
+  font-weight: 700;
+  font-family: var(--serif);
+  color: var(--accent);
+  margin-bottom: .2rem;
+}
+.glossary-grid dd { margin: 0; font-size: .87rem; color: var(--muted); line-height: 1.5; }
 
 .contributor-row {
   display: flex;

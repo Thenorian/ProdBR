@@ -164,6 +164,87 @@ if (initialQuery) {
   search();
 }
 
+const latestEl = document.getElementById("latest");
+
+async function loadLatestCards() {
+  try {
+    const res = await fetch("/products?sort=recent&limit=10");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const fiscalResults = await Promise.all(
+      data.items.map((p) =>
+        p.ncm
+          ? fetch(`/products/${encodeURIComponent(p.id)}/fiscal`)
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null)
+          : Promise.resolve(null)
+      )
+    );
+    renderLatestCards(data.items, fiscalResults);
+  } catch (err) {
+    latestEl.innerHTML = `<p class="error">Erro ao carregar últimos cadastrados: ${err.message}</p>`;
+  }
+}
+
+function renderLatestCards(products, fiscalByIndex) {
+  if (!products.length) {
+    latestEl.innerHTML = '<p class="empty">Nenhum produto cadastrado ainda. <a href="/new">Seja o primeiro</a>.</p>';
+    return;
+  }
+  latestEl.innerHTML = products
+    .map((p, i) => {
+      const fiscal = fiscalByIndex[i];
+      const barcode = p.identifiers[0]?.value;
+      const taxes = fiscal
+        ? [
+            fiscal.icms_rate != null ? `ICMS ${fiscal.icms_rate}%` : null,
+            fiscal.ipi_rate != null ? `IPI ${fiscal.ipi_rate}%` : null,
+            fiscal.pis_rate != null ? `PIS ${fiscal.pis_rate}%` : null,
+            fiscal.cofins_rate != null ? `COFINS ${fiscal.cofins_rate}%` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : null;
+      return `
+      <a class="card" href="/view/products/${encodeURIComponent(p.id)}">
+        <h3>${escapeHtml(p.name)}</h3>
+        <dl>
+          <dt>NCM</dt><dd>${p.ncm ? escapeHtml(p.ncm) : "—"}</dd>
+          <dt>Código de barras</dt><dd>${barcode ? escapeHtml(barcode) : "—"}</dd>
+          <dt>Alíquotas</dt><dd>${taxes || "sem regra fiscal cadastrada"}</dd>
+        </dl>
+      </a>`;
+    })
+    .join("");
+}
+
+const GLOSSARY_LABELS = {
+  gtin: "GTIN",
+  ncm: "NCM",
+  cest: "CEST",
+  uf: "UF",
+  origin: "Origem (ICMS)",
+  icms: "ICMS",
+  ipi: "IPI",
+  pis: "PIS",
+  cofins: "COFINS",
+  cbs: "CBS",
+  ibs: "IBS",
+  ii: "II",
+  fcp: "FCP",
+  country: "País (Mercosul)",
+};
+
+function renderGlossary() {
+  const el = document.getElementById("glossary");
+  if (!el) return;
+  el.innerHTML = Object.entries(GLOSSARY)
+    .map(([key, text]) => `<dt>${GLOSSARY_LABELS[key] || key.toUpperCase()}</dt><dd>${escapeHtml(text)}</dd>`)
+    .join("");
+}
+
 loadStats();
+loadLatestCards();
 loadRecentPortal();
 loadChanges();
+renderGlossary();
