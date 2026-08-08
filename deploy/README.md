@@ -1,118 +1,86 @@
-# Deploy em produção (VPS via SSH)
+# Deploy em produção (VPS via Docker)
 
-Duas coisas são configuradas **uma vez só, na mão, no servidor**: o
-processo (`systemd`) e o arquivo `.env` com a configuração da instância.
-Depois disso, todo `git push` na `main` (ou um "Re-run job" manual na aba
-Actions do GitHub) atualiza o servidor sozinho.
+A cada `git push` na `main` (ou um "Re-run job" manual na aba Actions do
+GitHub), o workflow `.github/workflows/deploy.yml`:
+
+1. Builda a imagem Docker do projeto (`Dockerfile` na raiz) e publica em
+   `ghcr.io/thenorian/prodbr`.
+2. Conecta no servidor via SSH e substitui o container `prodbr` em
+   execução pela nova imagem.
+
+O banco (SQLite) fica num volume Docker nomeado (`prodbr_data`), então
+sobrevive normalmente à troca de container a cada deploy.
 
 ## 1. Preparar o servidor (uma vez só)
 
-```bash
-# No servidor, como root ou com sudo:
-adduser --disabled-password --gecos "" prodbr
-mkdir -p /opt/prodbr
-chown prodbr:prodbr /opt/prodbr
+Nada de systemd, venv ou usuário dedicado - só Docker. O usuário usado
+pelo deploy (`deploy`, configurado no secret `SSH_USER`) já precisa estar
+no grupo `docker` do servidor (sem isso, ele não consegue rodar
+`docker run`/`docker pull` sem senha de root).
 
-su - prodbr
-git clone https://github.com/<seu-usuario>/ProdBR.git /opt/prodbr
-cd /opt/prodbr
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# edite o .env com os valores da sua instancia (ver secao 3 abaixo)
-exit  # volta a ser root/sudo
-```
+O container sobe conectado à rede Docker `nginx_default` (mesma rede do
+`nginx-proxy-manager`), sem porta exposta direto no host - assim como
+`ThenorianSite`. Configure o proxy reverso apontando pro container:
 
-Copie o serviço systemd (ajuste `User`/`WorkingDirectory` em
-`deploy/prodbr.service` se seu caminho/usuário for diferente de
-`prodbr`/`/opt/prodbr`):
+- No nginx-proxy-manager, crie um "Proxy Host" apontando pro endereço
+  interno `prodbr:8000` (nome do container:porta exposta no
+  `Dockerfile`), com o domínio/HTTPS desejado.
 
-```bash
-cp /opt/prodbr/deploy/prodbr.service /etc/systemd/system/prodbr.service
-systemctl daemon-reload
-systemctl enable --now prodbr
-systemctl status prodbr
-```
+## 2. Tornar a imagem pública no GHCR (uma vez só, após o primeiro push)
 
-A API sobe em `127.0.0.1:8000` (não exposta direto à internet de
-propósito). Configure um reverse proxy com HTTPS na frente (nginx ou
-Caddy) apontando pro `127.0.0.1:8000` — isso é independente do deploy
-automático e só precisa ser feito uma vez.
+Pacotes no GitHub Container Registry nascem **privados** mesmo em
+repositórios públicos. Depois do primeiro deploy bem-sucedido:
 
-### Permitir que o deploy reinicie o serviço sem senha
+`github.com/orgs/Thenorian/packages/container/prodbr/settings` → **Change
+visibility** → **Public**.
 
-O workflow conecta como um usuário via SSH e roda `sudo systemctl
-restart prodbr`. Pra isso não pedir senha, adicione uma regra **restrita**
-(só esse comando, não sudo total) com `visudo`:
+Sem isso, o `docker pull` no servidor falha com `unauthorized` (o
+projeto é de dados públicos, então não faz sentido manter a imagem
+privada e ter que gerenciar credencial de registry pra isso).
 
-```
-# /etc/sudoers.d/prodbr-deploy
-prodbr ALL=(root) NOPASSWD: /usr/bin/systemctl restart prodbr, /usr/bin/systemctl status prodbr
-```
+## 3. Secrets no GitHub (Settings → Secrets and variables → Actions)
 
-### Gerar a chave SSH que o GitHub vai usar
+Já configurados (reaproveitados dos outros projetos no mesmo servidor):
 
-```bash
-# Na sua máquina (não no servidor), gere um par de chaves dedicado ao deploy:
-ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
+| Secret            | Valor                                          |
+|--------------------|------------------------------------------------|
+| `SSH_HOST`         | IP ou domínio do servidor                       |
+| `SSH_USER`         | `deploy`                                        |
+| `SSH_PRIVATE_KEY`  | Chave privada já autorizada nesse usuário        |
+| `SSH_PORT`         | Porta do SSH, só se não for a 22                |
 
-# Copie a chave PUBLICA pro servidor (usuario prodbr):
-ssh-copy-id -i deploy_key.pub prodbr@SEU_SERVIDOR
+O secret `DEPLOY_PATH` (usado pelo deploy antigo, baseado em systemd) não
+é mais necessário e pode ser removido.
 
-# A chave PRIVADA (deploy_key, sem extensao) vai virar o secret
-# SSH_PRIVATE_KEY no GitHub - conteudo completo do arquivo, incluindo as
-# linhas "-----BEGIN ... KEY-----" e "-----END ... KEY-----".
-```
+## 4. Variáveis de ambiente da aplicação (opcional)
 
-## 2. Configurar os Secrets no GitHub
+Nenhuma delas é obrigatória - sem configurar nada, o app sobe com os
+padrões abaixo (bases SQLite locais dentro do volume, sem anúncio):
 
-No repositório: **Settings → Secrets and variables → Actions → New
-repository secret**. Esses secrets autenticam só o *mecanismo de
-deploy* (conexão SSH) — não são a configuração da aplicação, que vive no
-`.env` do servidor (seção 3).
+| Variável                  | Padrão                                          | Pra que serve                                                        |
+|----------------------------|--------------------------------------------------|-----------------------------------------------------------------------|
+| `PUBLIC_DATABASE_URL`      | `sqlite:////app/data/public.sqlite3` (Dockerfile) | Base pública (produtos/NCM/fiscal/revisões) - a que é exportável.     |
+| `COMMUNITY_DATABASE_URL`   | `sqlite:////app/data/community.sqlite3` (Dockerfile) | Base de comunidade (usuários/chaves/moderação) - nunca exportada. |
+| `MAX_PAGE_SIZE`            | `10`                                              | Limite de itens por página em buscas/listagens.                      |
+| `RATE_LIMIT_READ`          | `60/minute`                                       | Limite de requisições de leitura por IP.                              |
+| `RATE_LIMIT_WRITE`         | `10/minute`                                       | Limite de requisições de escrita por IP.                              |
+| `AUTO_APPROVE_REPUTATION`  | `20`                                              | Reputação mínima pra uma contribuição ser aplicada direto.            |
+| `REPUTATION_PER_CREATE`    | `3`                                               | Reputação ganha ao criar algo (aplicado ou aprovado).                 |
+| `REPUTATION_PER_UPDATE`    | `1`                                               | Reputação ganha ao editar algo.                                       |
+| `REPUTATION_PENALTY_REJECT`| `2`                                               | Reputação perdida quando uma contribuição é rejeitada.                |
+| `SESSION_TTL_HOURS`        | `336` (14 dias)                                   | Validade do token de sessão (login via usuário/senha).                |
+| `ADS_SNIPPET`              | *(vazio = sem anúncio)*                           | HTML/JS do provedor de anúncios da sua instância (ex: AdSense).       |
 
-| Secret            | Valor                                                        |
-|--------------------|---------------------------------------------------------------|
-| `SSH_HOST`         | IP ou domínio do servidor                                     |
-| `SSH_USER`         | `prodbr` (o usuário criado no passo 1)                        |
-| `SSH_PRIVATE_KEY`  | Conteúdo completo da chave privada gerada acima               |
-| `SSH_PORT`         | Porta do SSH, só se não for a 22 (opcional)                   |
-| `DEPLOY_PATH`      | `/opt/prodbr` (ou o caminho que você usou)                    |
+Pra customizar alguma, crie `~/prodbr.env` no servidor (usuário
+`deploy`), no formato `VARIAVEL=valor` (uma por linha, sem aspas/export -
+mesmo formato de um `.env`). O workflow detecta o arquivo sozinho no
+próximo deploy e passa pro container via `--env-file`. Esse arquivo é só
+local ao servidor - o deploy nunca sobrescreve nem apaga ele.
 
-## 3. Variáveis de ambiente da aplicação (`.env` no servidor)
+## 5. Rodar o deploy
 
-Essas ficam **só no `.env` do servidor** (nunca em secret do GitHub nem
-commitadas) — o deploy não mexe nelas, então configure uma vez e elas
-persistem entre deploys:
-
-| Variável                  | Padrão                              | Pra que serve                                                        |
-|----------------------------|--------------------------------------|-----------------------------------------------------------------------|
-| `PUBLIC_DATABASE_URL`      | `sqlite:///./data/public.sqlite3`    | Base pública (produtos/NCM/fiscal/revisões) - a que é exportável.     |
-| `COMMUNITY_DATABASE_URL`   | `sqlite:///./data/community.sqlite3` | Base de comunidade (usuários/chaves/moderação) - nunca exportada.     |
-| `MAX_PAGE_SIZE`            | `10`                                  | Limite de itens por página em buscas/listagens.                      |
-| `RATE_LIMIT_READ`          | `60/minute`                          | Limite de requisições de leitura por IP.                              |
-| `RATE_LIMIT_WRITE`         | `10/minute`                          | Limite de requisições de escrita por IP.                              |
-| `AUTO_APPROVE_REPUTATION`  | `20`                                  | Reputação mínima pra uma contribuição ser aplicada direto.            |
-| `REPUTATION_PER_CREATE`    | `3`                                   | Reputação ganha ao criar algo (aplicado ou aprovado).                 |
-| `REPUTATION_PER_UPDATE`    | `1`                                   | Reputação ganha ao editar algo.                                       |
-| `REPUTATION_PENALTY_REJECT`| `2`                                   | Reputação perdida quando uma contribuição é rejeitada.                |
-| `SESSION_TTL_HOURS`        | `336` (14 dias)                      | Validade do token de sessão (login via usuário/senha).                |
-| `ADS_SNIPPET`              | *(vazio = sem anúncio)*              | HTML/JS do provedor de anúncios da sua instância (ex: AdSense).       |
-
-Nenhuma delas é obrigatória — sem `.env`, a aplicação sobe com os
-padrões acima (bases SQLite locais, sem anúncio). Ajuste só o que quiser
-mudar.
-
-## 4. Rodar o deploy
-
-- **Automático:** todo `git push` na `main` dispara o workflow
-  `.github/workflows/deploy.yml`.
+- **Automático:** todo `git push` na `main` dispara o workflow.
 - **Manual ("Re-run job"):** aba **Actions** do GitHub → workflow
   **Deploy** → **Run workflow** (ou, num run que já existir, o botão
-  **Re-run all jobs**) — útil se o deploy falhou por uma instabilidade
+  **Re-run all jobs**) - útil se o deploy falhou por uma instabilidade
   passageira do servidor e não precisa de commit novo pra tentar de novo.
-
-O workflow faz `git reset --hard origin/main` na pasta do servidor - por
-isso a pasta em `/opt/prodbr` deve ser tratada como só-leitura por
-humanos (nenhuma edição manual lá, sempre via commit + push).

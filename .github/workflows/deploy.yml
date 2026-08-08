@@ -9,11 +9,39 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+env:
+  IMAGE: ghcr.io/thenorian/prodbr
+
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: Atualiza o container no servidor via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -22,10 +50,25 @@ jobs:
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
             set -e
-            cd "${{ secrets.DEPLOY_PATH }}"
-            git fetch origin main
-            git reset --hard origin/main
-            source venv/bin/activate
-            pip install -r requirements.txt
-            sudo systemctl restart prodbr
-            sudo systemctl status prodbr --no-pager
+            docker pull ghcr.io/thenorian/prodbr:latest
+
+            docker stop prodbr 2>/dev/null || true
+            docker rm prodbr 2>/dev/null || true
+
+            # ~/prodbr.env e opcional - so existe se alguem customizou
+            # alguma variavel (ver deploy/README.md). Sem ele, o app sobe
+            # com os padroes definidos no Dockerfile.
+            ENV_FLAG=""
+            if [ -f "$HOME/prodbr.env" ]; then
+              ENV_FLAG="--env-file $HOME/prodbr.env"
+            fi
+
+            docker run -d \
+              --name prodbr \
+              --restart unless-stopped \
+              --network nginx_default \
+              -v prodbr_data:/app/data \
+              $ENV_FLAG \
+              ghcr.io/thenorian/prodbr:latest
+
+            docker image prune -f
