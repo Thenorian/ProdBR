@@ -51,5 +51,8 @@ class RegisterOut(BaseModel):
 class UserPublic(BaseModel):
     username: str
     reputation: int
+    edit_count: int
+    tier_name: str
+    tier_color: str
     role: str
     created_at: datetime

@@ -22,6 +22,11 @@ class User(CommunityBase):
     password_hash: Mapped[str] = mapped_column(String(200))
     password_salt: Mapped[str] = mapped_column(String(32))
     reputation: Mapped[int] = mapped_column(default=0)
+    # Contagem pura de edicoes aplicadas (create+update, sem peso) - usada
+    # so para o nivel publico (ver app/reputation_tiers.py). E distinta de
+    # `reputation`, que pondera create/update diferente e decide
+    # auto-aprovacao (AUTO_APPROVE_REPUTATION).
+    edit_count: Mapped[int] = mapped_column(default=0)
     role: Mapped[str] = mapped_column(String(20), default="member")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

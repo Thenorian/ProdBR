@@ -24,7 +24,7 @@ function renderContributors(users) {
       ${avatarHtml(u.username)}
       <a class="contributor-name" href="/users/${encodeURIComponent(u.username)}">${escapeHtml(u.username)}</a>
       <span class="badge">${escapeHtml(u.role)}</span>
-      <span class="rep-badge">rep ${u.reputation}</span>
+      ${tierBadgeHtml(u)}
     </div>`
     )
     .join("");

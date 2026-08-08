@@ -92,6 +92,7 @@ def approve_pending_change(
     pending.reviewed_at = _utcnow()
     if proposer is not None:
         proposer.reputation += reputation_delta(pending.entity_id)
+        proposer.edit_count += 1
     db_community.commit()
 
     return PendingChangeOut(

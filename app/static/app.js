@@ -88,6 +88,12 @@ function avatarHtml(username) {
   return `<span class="avatar" style="background:${color}">${escapeHtml(letter)}</span>`;
 }
 
+// Nivel publico de contribuidor (Iniciante/Editor/Renomado/Mestre/Supremo),
+// calculado no backend a partir de edicoes aplicadas - ver app/reputation_tiers.py.
+function tierBadgeHtml(profile) {
+  return `<span class="rep-badge" style="color:${profile.tier_color};background:color-mix(in srgb, ${profile.tier_color} 16%, transparent)" title="${profile.edit_count} edição(ões) aplicada(s)">${escapeHtml(profile.tier_name)}</span>`;
+}
+
 // Glossario de termos tecnicos - usado nos icones de ajuda (help-icon)
 // espalhados pelos formularios (NCM, CEST, GTIN, aliquotas...).
 const GLOSSARY = {
@@ -177,7 +183,7 @@ function initNav() {
       .then((r) => (r.ok ? r.json() : null))
       .then((profile) => {
         if (!profile) return;
-        usernameEl.innerHTML = `${avatarHtml(username)} ${escapeHtml(username)} <span class="rep-badge">rep ${profile.reputation}</span>`;
+        usernameEl.innerHTML = `${avatarHtml(username)} ${escapeHtml(username)} ${tierBadgeHtml(profile)}`;
         if (profile.role === "moderator" || profile.role === "admin") {
           modLink.hidden = false;
         }

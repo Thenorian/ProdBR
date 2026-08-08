@@ -28,7 +28,7 @@ function render(profile) {
       <table class="fiscal-table">
         <tr><th>Usuário</th><td>${avatarHtml(profile.username)} ${escapeHtml(profile.username)}</td></tr>
         <tr><th>Papel</th><td><span class="badge">${escapeHtml(profile.role)}</span></td></tr>
-        <tr><th>Reputação</th><td><span class="rep-badge">rep ${profile.reputation}</span></td></tr>
+        <tr><th>Nível</th><td>${tierBadgeHtml(profile)} <span class="form-hint" style="display:inline;">(${profile.edit_count} edição(ões))</span></td></tr>
         <tr><th>Contribuidor desde</th><td>${new Date(profile.created_at + "Z").toLocaleDateString("pt-BR")}</td></tr>
       </table>
     </div>

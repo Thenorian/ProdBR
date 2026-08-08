@@ -6,9 +6,14 @@ from app.database import get_community_db, get_public_db
 from app.models_community import User
 from app.models_public import Revision
 from app.rate_limit import limiter
+from app.reputation_tiers import TIERS, user_public
 from app.schemas_auth import UserPublic
 
 router = APIRouter(tags=["users"])
+
+# Editor+ (segundo nivel) - iniciantes (nivel 0) nao aparecem no ranking
+# publico, senao qualquer conta recem-criada apareceria la.
+CONTRIBUTOR_MIN_EDITS = TIERS[1].min_edits
 
 
 @router.get("/users", response_model=list[UserPublic])
@@ -18,17 +23,18 @@ def list_contributors(
     limit: int = 20,
     db_community: DbSession = Depends(get_community_db),
 ):
-    """Ranking publico de contribuidores por reputacao - usado na pagina
-    Sobre. So dados publicos do perfil (sem e-mail)."""
+    """Ranking publico de contribuidores (nivel Editor pra cima - ver
+    app/reputation_tiers.py) por numero de edicoes. So dados publicos do
+    perfil (sem e-mail)."""
     limit = max(1, min(limit, 50))
     users = (
         db_community.query(User)
-        .filter(User.reputation > 0)
-        .order_by(User.reputation.desc(), User.created_at)
+        .filter(User.edit_count >= CONTRIBUTOR_MIN_EDITS)
+        .order_by(User.edit_count.desc(), User.created_at)
         .limit(limit)
         .all()
     )
-    return [UserPublic(username=u.username, reputation=u.reputation, role=u.role, created_at=u.created_at) for u in users]
+    return [user_public(u) for u in users]
 
 
 @router.get("/users/{username}", response_model=UserPublic)
@@ -45,7 +51,7 @@ def get_user_profile(
     user = db_community.query(User).filter(User.username == username).first()
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario nao encontrado.")
-    return UserPublic(username=user.username, reputation=user.reputation, role=user.role, created_at=user.created_at)
+    return user_public(user)
 
 
 @router.get("/users/{username}/contributions", response_model=list)
