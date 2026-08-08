@@ -7,7 +7,7 @@ from app.changes import propose_or_apply
 from app.config import settings
 from app.database import get_community_db, get_public_db
 from app.models_community import User
-from app.models_public import Product, ProductIdentifier
+from app.models_public import Category, Product, ProductIdentifier
 from app.rate_limit import limiter
 from app.routes.common import apply_or_400, get_or_404, write_response
 from app.schemas import (
@@ -49,7 +49,7 @@ def search_products(
     if ncm:
         query = query.filter(Product.ncm == ncm.strip())
     if category:
-        query = query.filter(Product.category == category.strip())
+        query = query.join(Category, Product.category_id == Category.id).filter(Category.name == category.strip())
     if q:
         like = f"%{q}%"
         query = query.filter(
@@ -74,6 +74,23 @@ def search_products(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/categories", response_model=list[str])
+@limiter.limit(settings.rate_limit_read)
+def search_categories(
+    request: Request,
+    q: str | None = None,
+    limit: int = 20,
+    db: DbSession = Depends(get_public_db),
+):
+    """Sugestoes de categoria ja cadastradas (autocomplete) - categoria e'
+    texto livre, mas normalizado por baixo dos panos (ver Category)."""
+    limit = max(1, min(limit, 50))
+    query = db.query(Category.name)
+    if q:
+        query = query.filter(Category.name.ilike(f"%{q.strip()}%"))
+    return [row[0] for row in query.order_by(Category.name).limit(limit).all()]
 
 
 @router.get("/products/{product_id}", response_model=ProductOut)

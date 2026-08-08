@@ -141,6 +141,64 @@ def test_update_identifier_empty_payload_rejected(client, trusted_headers):
     assert res.status_code == 400
 
 
+def test_category_is_normalized_and_shared(client, trusted_headers):
+    """Categoria e' texto livre na API, mas por baixo dos panos vira uma
+    Category compartilhada (get-or-create por nome) - ver app/changes.py."""
+    p1 = client.post(
+        "/products", json=make_product_payload(category="Pet > Ração Cães"), headers=trusted_headers
+    ).json()
+    p2 = client.post(
+        "/products",
+        json=make_product_payload(ncm="19059090", category="Pet > Ração Cães"),
+        headers=trusted_headers,
+    ).json()
+    assert p1["category"] == "Pet > Ração Cães"
+    assert p2["category"] == "Pet > Ração Cães"
+
+    db = PublicSession()
+    try:
+        from app.models_public import Category
+
+        assert db.query(Category).filter(Category.name == "Pet > Ração Cães").count() == 1
+    finally:
+        db.close()
+
+
+def test_search_by_category(client, trusted_headers):
+    client.post("/products", json=make_product_payload(category="Ferragens"), headers=trusted_headers)
+    client.post(
+        "/products", json=make_product_payload(ncm="19059090", category="Mecânica"), headers=trusted_headers
+    )
+
+    res = client.get("/products", params={"category": "Ferragens"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["total"] == 1
+    assert body["items"][0]["category"] == "Ferragens"
+
+
+def test_update_product_category(client, trusted_headers):
+    product = client.post(
+        "/products", json=make_product_payload(category="Categoria Antiga"), headers=trusted_headers
+    ).json()
+
+    res = client.put(
+        f"/products/{product['id']}",
+        json={"category": "Categoria Nova", "reason": "recategorizando"},
+        headers=trusted_headers,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["category"] == "Categoria Nova"
+
+
+def test_category_autocomplete(client, trusted_headers):
+    client.post("/products", json=make_product_payload(category="Agropecuária"), headers=trusted_headers)
+
+    res = client.get("/categories", params={"q": "agro"})
+    assert res.status_code == 200
+    assert "Agropecuária" in res.json()
+
+
 def test_search_page_size_is_capped(client, trusted_headers):
     for i in range(12):
         client.post(

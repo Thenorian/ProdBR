@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.config import settings
 from app.models_community import PendingChange, User
-from app.models_public import FiscalRule, NcmClassification, Product, ProductIdentifier, Revision
+from app.models_public import Category, FiscalRule, NcmClassification, Product, ProductIdentifier, Revision
 
 ENTITY_MODELS = {"product": Product, "fiscal_rule": FiscalRule, "ncm_classification": NcmClassification}
 
@@ -53,7 +53,7 @@ WRITABLE_FIELDS = {
     # "ncm" so entra aqui porque na criacao ele e a propria chave primaria
     # (fornecida pelo contribuidor, nao gerada pelo sistema como
     # Product.id) - por isso NcmUpdate nao expoe esse campo, so criacao.
-    "ncm_classification": ["ncm", "description", "chapter", "unit", "source"],
+    "ncm_classification": ["ncm", "description", "chapter", "category", "unit", "source"],
 }
 
 DATE_FIELDS = {"fiscal_rule": {"valid_from", "valid_until"}}
@@ -61,6 +61,22 @@ INT_PK_ENTITIES = {"fiscal_rule"}
 # Nome do atributo de chave primaria de cada entidade - "id" pra maioria,
 # mas ncm_classification usa o proprio codigo NCM como chave.
 PK_ATTR = {"ncm_classification": "ncm"}
+# Entidades cujo campo "category" (texto livre, pra API/UI) e' resolvido
+# para uma Category normalizada (get-or-create por nome) e guardado como
+# `category_id` no modelo - ver _resolve_category_id.
+CATEGORY_FIELD_ENTITIES = {"product", "ncm_classification"}
+
+
+def _resolve_category_id(db_public: DbSession, name: str | None) -> int | None:
+    if not name or not name.strip():
+        return None
+    name = name.strip()
+    category = db_public.query(Category).filter(Category.name == name).first()
+    if category is None:
+        category = Category(name=name)
+        db_public.add(category)
+        db_public.flush()
+    return category.id
 
 
 def _coerce(entity_type: str, field: str, value):
@@ -91,7 +107,14 @@ def apply_entity_change(
     fields = WRITABLE_FIELDS[entity_type]
 
     if entity_id is None:
-        kwargs = {f: _coerce(entity_type, f, payload[f]) for f in fields if f in payload}
+        kwargs = {}
+        for f in fields:
+            if f not in payload:
+                continue
+            if f == "category" and entity_type in CATEGORY_FIELD_ENTITIES:
+                kwargs["category_id"] = _resolve_category_id(db_public, payload[f])
+            else:
+                kwargs[f] = _coerce(entity_type, f, payload[f])
         entity = model(**kwargs)
         db_public.add(entity)
         try:
@@ -123,11 +146,19 @@ def apply_entity_change(
         for field, raw_value in payload.items():
             if field not in fields:
                 continue
-            new_value = _coerce(entity_type, field, raw_value)
-            old_value = getattr(entity, field)
-            if old_value == new_value:
-                continue
-            setattr(entity, field, new_value)
+            if field == "category" and entity_type in CATEGORY_FIELD_ENTITIES:
+                old_value = entity.category
+                new_category_id = _resolve_category_id(db_public, raw_value)
+                new_value = db_public.get(Category, new_category_id).name if new_category_id else None
+                if old_value == new_value:
+                    continue
+                entity.category_id = new_category_id
+            else:
+                new_value = _coerce(entity_type, field, raw_value)
+                old_value = getattr(entity, field)
+                if old_value == new_value:
+                    continue
+                setattr(entity, field, new_value)
             db_public.add(
                 Revision(
                     entity_type=entity_type,
@@ -261,6 +292,7 @@ def propose_or_apply(
     if can_auto_approve(user):
         entity = dispatch_apply(db_public, entity_type, entity_id, payload, user.username, reason)
         user.reputation += reputation_delta(entity_id)
+        user.edit_count += 1
         db_community.commit()
         return {"status": "applied", "entity": entity}
 

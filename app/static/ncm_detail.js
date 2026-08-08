@@ -380,8 +380,6 @@ function wireEditing(ncm) {
 }
 
 const FISCAL_FIELDS = [
-  ["country", "País", "text", { maxlength: 2 }],
-  ["uf", "UF (vazio = nacional)", "text", { maxlength: 2 }],
   ["cest", "CEST", "text", { maxlength: 7 }],
   ["origin", "Origem (0-8)", "number", { min: 0, max: 8, step: 1 }],
   ["icms_rate", "ICMS (%)", "number", { min: 0, max: 100, step: "0.01" }],
@@ -397,7 +395,26 @@ const FISCAL_FIELDS = [
   ["valid_until", "Vigente até (vazio = sem fim)", "date", {}],
 ];
 
-function fiscalRuleFormHtml(rule) {
+let countriesCache = null;
+async function getCountries() {
+  if (!countriesCache) {
+    const res = await fetch("/countries");
+    countriesCache = res.ok ? await res.json() : [];
+  }
+  return countriesCache;
+}
+async function getStates(countryId) {
+  const res = await fetch(`/countries/${encodeURIComponent(countryId)}/states`);
+  return res.ok ? await res.json() : [];
+}
+
+function stateOptionsHtml(states, selectedCode) {
+  const options = [`<option value="">Nacional (padrão)</option>`]
+    .concat(states.map((s) => `<option value="${escapeHtml(s.code)}" ${s.code === selectedCode ? "selected" : ""}>${escapeHtml(s.name)} (${escapeHtml(s.code)})</option>`));
+  return options.join("");
+}
+
+async function fiscalRuleFormHtml(rule) {
   const v = (field, fallback = "") => (rule && rule[field] != null ? rule[field] : fallback);
   const attrs = (extra) =>
     Object.entries(extra)
@@ -406,12 +423,26 @@ function fiscalRuleFormHtml(rule) {
   const fields = FISCAL_FIELDS.map(([name, label, type, extra]) => `
       <div class="form-group">
         <label>${label}</label>
-        <input name="${name}" type="${type}" value="${escapeHtml(String(v(name, name === "country" ? "BR" : "")))}" ${attrs(extra)} />
+        <input name="${name}" type="${type}" value="${escapeHtml(String(v(name, "")))}" ${attrs(extra)} />
       </div>`).join("");
+
+  const selectedCountry = v("country", "BR") || "BR";
+  const [countries, states] = await Promise.all([getCountries(), getStates(selectedCountry)]);
+  const countryOptionsHtml = countries
+    .map((c) => `<option value="${escapeHtml(c.id)}" ${c.id === selectedCountry ? "selected" : ""}>${escapeHtml(c.name)} (${escapeHtml(c.id)})</option>`)
+    .join("");
 
   return `
     <form id="fiscal-form" class="fiscal-form">
       <div class="form-grid">
+        <div class="form-group">
+          <label>País${helpIcon("country")}</label>
+          <select name="country" id="fiscal-country-select">${countryOptionsHtml}</select>
+        </div>
+        <div class="form-group">
+          <label>UF${helpIcon("uf")}</label>
+          <select name="uf" id="fiscal-uf-select">${stateOptionsHtml(states, v("uf", ""))}</select>
+        </div>
         ${fields}
         <div class="form-group full">
           <label>Fonte</label>
@@ -458,17 +489,29 @@ function wireFiscalManagement(ncm) {
     showFiscalForm(rule);
   });
 
-  function showFiscalForm(rule) {
-    formWrap.innerHTML = fiscalRuleFormHtml(rule);
+  async function showFiscalForm(rule) {
+    formWrap.innerHTML = '<p class="empty">Carregando...</p>';
+    formWrap.innerHTML = await fiscalRuleFormHtml(rule);
     const form = document.getElementById("fiscal-form");
     const messageEl = document.getElementById("fiscal-form-message");
     document.getElementById("cancel-fiscal-form").addEventListener("click", () => {
       formWrap.innerHTML = "";
     });
+    document.getElementById("fiscal-country-select").addEventListener("change", async (e) => {
+      const states = await getStates(e.target.value);
+      document.getElementById("fiscal-uf-select").innerHTML = stateOptionsHtml(states, null);
+    });
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(form).entries());
-      const payload = { reason: data.reason, ncm: ncmCode, source: data.source, notes: data.notes || null };
+      const payload = {
+        reason: data.reason,
+        ncm: ncmCode,
+        source: data.source,
+        notes: data.notes || null,
+        country: data.country || "BR",
+        uf: data.uf || null,
+      };
       for (const [name] of FISCAL_FIELDS) {
         payload[name] = data[name] === "" ? null : data[name];
       }

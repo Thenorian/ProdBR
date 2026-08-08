@@ -12,7 +12,7 @@ class ProductBase(BaseModel):
     brand: str | None = Field(None, max_length=120)
     ncm: str = Field(..., min_length=8, max_length=8, description="NCM com 8 digitos, sem pontuacao.")
     cest: str | None = Field(None, max_length=7)
-    category: str | None = Field(None, max_length=120)
+    category: str | None = Field(None, max_length=150)
     commercial_unit: str = Field("UN", max_length=10)
     description: str | None = Field(None, max_length=1000)
     manufacturer: str | None = Field(None, max_length=120)
@@ -28,7 +28,7 @@ class ProductUpdate(BaseModel):
     brand: str | None = Field(None, max_length=120)
     ncm: str | None = Field(None, min_length=8, max_length=8)
     cest: str | None = Field(None, max_length=7)
-    category: str | None = Field(None, max_length=120)
+    category: str | None = Field(None, max_length=150)
     commercial_unit: str | None = Field(None, max_length=10)
     description: str | None = Field(None, max_length=1000)
     manufacturer: str | None = Field(None, max_length=120)
@@ -136,10 +136,27 @@ class FiscalRuleOut(FiscalRuleBase):
     created_at: datetime
 
 
+class CountryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+
+
+class StateOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    code: str
+    country_id: str
+
+
 class NcmBase(BaseModel):
     ncm: str = Field(..., min_length=8, max_length=8, description="NCM com 8 digitos, sem pontuacao.")
     description: str = Field(..., min_length=1, max_length=500, description="Texto oficial da classificacao (TIPI/Mercosul).")
     chapter: str | None = Field(None, min_length=2, max_length=2, description="Dois primeiros digitos do NCM (capitulo).")
+    category: str | None = Field(None, max_length=150, description="Categoria normalizada (ex: Bebidas, Ferragens).")
     unit: str | None = Field(None, max_length=20, description="Unidade estatistica de comercio exterior (ex: UN, KG).")
     source: str = Field(..., min_length=1, max_length=120)
 
@@ -151,6 +168,7 @@ class NcmCreate(NcmBase):
 class NcmUpdate(BaseModel):
     description: str | None = Field(None, min_length=1, max_length=500)
     chapter: str | None = Field(None, min_length=2, max_length=2)
+    category: str | None = Field(None, max_length=150)
     unit: str | None = Field(None, max_length=20)
     source: str | None = Field(None, min_length=1, max_length=120)
     reason: str = REASON

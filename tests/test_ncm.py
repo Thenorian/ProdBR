@@ -1,3 +1,6 @@
+from app.database import PublicSession
+
+
 def make_ncm_payload(**overrides):
     payload = {
         "ncm": "22030000",
@@ -88,3 +91,23 @@ def test_update_ncm_requires_reason(client, trusted_headers):
     )
     assert res.status_code == 200
     assert res.json()["description"] == "Cervejas de malte, em embalagens retornaveis"
+
+
+def test_ncm_category_shared_with_products(client, trusted_headers):
+    client.post("/ncm", json=make_ncm_payload(category="Bebidas"), headers=trusted_headers)
+    detail = client.get("/ncm/22030000").json()
+    assert detail["category"] == "Bebidas"
+
+    client.post(
+        "/products",
+        json={"name": "Cerveja", "ncm": "22030000", "category": "Bebidas", "source": "t", "reason": "criacao"},
+        headers=trusted_headers,
+    )
+
+    db = PublicSession()
+    try:
+        from app.models_public import Category
+
+        assert db.query(Category).filter(Category.name == "Bebidas").count() == 1
+    finally:
+        db.close()

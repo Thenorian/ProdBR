@@ -10,7 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from app.config import settings
 from app.database import CommunityBase, PublicBase, community_engine, public_engine
 from app.rate_limit import limiter
-from app.routes import auth, export, fiscal, moderation, ncm, products, revisions, stats, users
+from app.routes import auth, export, fiscal, geo, moderation, ncm, products, revisions, stats, users
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
@@ -39,6 +39,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(products.router)
 app.include_router(fiscal.router)
 app.include_router(ncm.router)
+app.include_router(geo.router)
 app.include_router(revisions.router)
 app.include_router(auth.router)
 app.include_router(users.router)

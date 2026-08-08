@@ -14,6 +14,50 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+class Country(PublicBase):
+    """Pais do Mercosul (bloco a que o NCM pertence). `id` e' o codigo ISO
+    3166-1 alpha-2 (ex: "BR") - mesmo valor ja usado em FiscalRule.country,
+    entao vira FK sem precisar migrar dado nenhum."""
+
+    __tablename__ = "countries"
+
+    id: Mapped[str] = mapped_column(String(2), primary_key=True)
+    name: Mapped[str] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class State(PublicBase):
+    """Estado/provincia de um pais - dado de referencia (bibliografia),
+    nao uma FK obrigatoria em FiscalRule.uf (que continua uma sigla livre
+    por simplicidade do formulario) - serve pra alimentar um seletor de
+    UF real em vez de um campo de texto solto."""
+
+    __tablename__ = "states"
+    __table_args__ = (UniqueConstraint("country_id", "code", name="uq_state_country_code"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(80))
+    code: Mapped[str] = mapped_column(String(5))
+    country_id: Mapped[str] = mapped_column(ForeignKey("countries.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class Category(PublicBase):
+    """Categoria normalizada, compartilhada por produtos e NCMs - em vez
+    de repetir o mesmo texto de categoria em cada linha. Nome pode ser
+    hierarquico como texto livre (ex: "Pet > Ração Cães > Filhotes"); a
+    tabela em si e' flat, so o nome carrega a hierarquia."""
+
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(150), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
 class Product(PublicBase):
     """Identificacao de um produto - sem preco, custo ou fornecedor, e sem
     aliquotas (isso mora em FiscalRule, chaveada por NCM e nao pelo
@@ -31,7 +75,7 @@ class Product(PublicBase):
     # ainda nao mapeado, pendente de revisao manual antes de aplicar.
     ncm: Mapped[str | None] = mapped_column(String(8), index=True, nullable=True)
     cest: Mapped[str | None] = mapped_column(String(7), nullable=True)
-    category: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True, index=True)
     commercial_unit: Mapped[str] = mapped_column(String(10), default="UN")
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     manufacturer: Mapped[str | None] = mapped_column(String(120), nullable=True)
@@ -48,6 +92,14 @@ class Product(PublicBase):
     identifiers: Mapped[list["ProductIdentifier"]] = relationship(
         back_populates="product", cascade="all, delete-orphan"
     )
+    category_ref: Mapped[Category | None] = relationship()
+
+    @property
+    def category(self) -> str | None:
+        """Nome da categoria (via FK) - le/escreve como texto simples pra
+        API/UI, mas armazenado normalizado. Ver app/changes.py::_resolve_category_id
+        pra escrita (resolve/cria a Category por nome)."""
+        return self.category_ref.name if self.category_ref else None
 
 
 IDENTIFIER_TYPES = (
@@ -99,7 +151,7 @@ class FiscalRule(PublicBase):
     id: Mapped[int] = mapped_column(primary_key=True)
     ncm: Mapped[str] = mapped_column(String(8), index=True)
     cest: Mapped[str | None] = mapped_column(String(7), nullable=True)
-    country: Mapped[str] = mapped_column(String(2), default="BR", index=True)
+    country: Mapped[str] = mapped_column(ForeignKey("countries.id"), default="BR", index=True)
     uf: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     # Codigo de origem da mercadoria (tabela ICMS - Origem, 0 a 8).
@@ -151,12 +203,21 @@ class NcmClassification(PublicBase):
     # = bebidas). Redundante com `ncm` de proposito - evita recalcular na
     # leitura toda hora.
     chapter: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    # Categoria normalizada (mesma tabela usada por Product) - opcional,
+    # ajuda a navegar/agrupar NCMs por area (ex: "Bebidas", "Alimentos").
+    category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True, index=True)
     # Unidade estatistica de comercio exterior (Siscomex), ex: "UN", "KG".
     unit: Mapped[str | None] = mapped_column(String(20), nullable=True)
     source: Mapped[str] = mapped_column(String(120))
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+    category_ref: Mapped[Category | None] = relationship()
+
+    @property
+    def category(self) -> str | None:
+        return self.category_ref.name if self.category_ref else None
 
 
 class Revision(PublicBase):

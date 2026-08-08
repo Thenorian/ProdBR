@@ -10,7 +10,7 @@ import zipfile
 
 from app.database import public_db_path
 
-PUBLIC_TABLES = ["products", "product_identifiers", "fiscal_rules", "ncm_classifications", "revisions"]
+PUBLIC_TABLES = ["categories", "products", "product_identifiers", "fiscal_rules", "ncm_classifications", "revisions"]
 
 
 def _connect_readonly() -> sqlite3.Connection:
