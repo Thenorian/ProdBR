@@ -1,0 +1,31 @@
+name: Deploy
+
+# Roda a cada push na main, e pode ser disparado manualmente (botao
+# "Run workflow" / "Re-run job" na aba Actions do GitHub) - util quando
+# o deploy falhou por instabilidade do servidor e so precisa tentar de
+# novo, sem precisar de um commit novo.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+            cd "${{ secrets.DEPLOY_PATH }}"
+            git fetch origin main
+            git reset --hard origin/main
+            source venv/bin/activate
+            pip install -r requirements.txt
+            sudo systemctl restart prodbr
+            sudo systemctl status prodbr --no-pager

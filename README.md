@@ -211,6 +211,14 @@ então também dá para copiar `data/public.sqlite3` diretamente.
 
 Tipagem completa de cada rota em `/docs` (Swagger) e `/redoc`.
 
+## Deploy em produção
+
+Deploy automático via GitHub Actions a cada push na `main` (ou disparo
+manual/"Re-run job" na aba Actions) — conecta por SSH num VPS, atualiza o
+código e reinicia o serviço. Passo a passo completo (setup do servidor,
+systemd, secrets do GitHub, variáveis de ambiente) em
+[`deploy/README.md`](deploy/README.md).
+
 ## Testes
 
 ```bash
