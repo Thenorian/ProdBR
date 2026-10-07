@@ -8,7 +8,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
-from app.database import CommunityBase, PublicBase, community_engine, public_engine
+from app.database import CommunityBase, PublicBase, community_engine, ensure_column, public_engine
 from app.rate_limit import limiter
 from app.routes import admin, auth, export, fiscal, geo, moderation, ncm, products, revisions, stats, users
 
@@ -17,6 +17,7 @@ PROJECT_ROOT = APP_DIR.parent
 
 PublicBase.metadata.create_all(bind=public_engine)
 CommunityBase.metadata.create_all(bind=community_engine)
+ensure_column(community_engine, "users", "tier_override", "VARCHAR(20)")
 
 app = FastAPI(
     title="ProdBR API",

@@ -7,7 +7,7 @@ from app.config import settings
 from app.database import get_community_db
 from app.models_community import ROLES, User
 from app.rate_limit import limiter
-from app.reputation_tiers import user_public
+from app.reputation_tiers import TIERS, tier_by_name, tier_for, user_public
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -16,10 +16,19 @@ class RoleUpdate(BaseModel):
     role: str
 
 
+class TierUpdate(BaseModel):
+    tier: str | None  # nome do nivel (ex: "Mestre"); None tira o nivel concedido
+
+
 def _admin_view(user: User) -> dict:
     # Perfil publico + e-mail: so o admin ve, pra saber de quem e cada conta
     # (ex: conta tecnica de integracao do Simple ERP).
-    return {**user_public(user).model_dump(), "email": user.email}
+    return {
+        **user_public(user).model_dump(),
+        "email": user.email,
+        "tier_override": user.tier_override,
+        "earned_tier": tier_for(user.edit_count).name,
+    }
 
 
 @router.get("/users")
@@ -64,6 +73,37 @@ def update_role(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Voce nao pode mudar o seu proprio papel."
         )
     user.role = payload.role
+    db_community.commit()
+    db_community.refresh(user)
+    return _admin_view(user)
+
+
+@router.get("/tiers")
+@limiter.limit(settings.rate_limit_read)
+def list_tiers(request: Request, admin: User = Depends(require_admin)):
+    return [{"name": t.name, "min_edits": t.min_edits, "color": t.color} for t in TIERS]
+
+
+@router.put("/users/{username}/tier")
+@limiter.limit(settings.rate_limit_write)
+def update_tier(
+    request: Request,
+    username: str,
+    payload: TierUpdate,
+    db_community: DbSession = Depends(get_community_db),
+    admin: User = Depends(require_admin),
+):
+    """Concede um nivel (Iniciante..Supremo). E um piso: vale o maior entre
+    o concedido e o conquistado por edicoes - nunca rebaixa ninguem."""
+    if payload.tier is not None and tier_by_name(payload.tier) is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Nivel invalido. Use um de: {', '.join(t.name for t in TIERS)}.",
+        )
+    user = db_community.query(User).filter(User.username == username).first()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario nao encontrado.")
+    user.tier_override = payload.tier
     db_community.commit()
     db_community.refresh(user)
     return _admin_view(user)

@@ -52,3 +52,18 @@ def public_db_path() -> str:
     if not settings.public_database_url.startswith(prefix):
         raise RuntimeError("Exportacao de arquivo so e suportada com PUBLIC_DATABASE_URL sqlite.")
     return settings.public_database_url[len(prefix):]
+
+
+def ensure_column(engine, table: str, column: str, ddl_type: str) -> None:
+    """Adiciona uma coluna nova numa tabela que ja existe. create_all so
+    cria tabelas que faltam, nunca colunas - sem isso, uma coluna nova no
+    modelo quebraria o banco ja em producao (SQLite)."""
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    if table not in insp.get_table_names():
+        return
+    if column in {c["name"] for c in insp.get_columns(table)}:
+        return
+    with engine.begin() as conn:
+        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))

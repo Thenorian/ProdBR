@@ -51,3 +51,39 @@ def test_invalid_role_and_unknown_user(client, admin_headers, newbie_headers):
 def test_moderator_cannot_change_roles(client, moderator_headers, newbie_headers):
     res = client.put("/admin/users/newbie/role", json={"role": "admin"}, headers=moderator_headers)
     assert res.status_code == 403
+
+
+def test_admin_grants_tier_as_floor(client, admin_headers, newbie_headers):
+    res = client.put("/admin/users/newbie/tier", json={"tier": "Mestre"}, headers=admin_headers)
+    assert res.status_code == 200, res.text
+    assert res.json()["tier_name"] == "Mestre"
+    assert res.json()["earned_tier"] == "Iniciante"
+    # Perfil publico tambem mostra o nivel concedido.
+    assert client.get("/users/newbie").json()["tier_name"] == "Mestre"
+
+
+def test_granted_tier_never_lowers_earned_one(client, admin_headers, newbie_headers):
+    set_user("newbie", edit_count=1000)  # conquistou Renomado
+    res = client.put("/admin/users/newbie/tier", json={"tier": "Editor"}, headers=admin_headers)
+    assert res.json()["tier_name"] == "Renomado"
+
+
+def test_remove_granted_tier_and_invalid_tier(client, admin_headers, newbie_headers):
+    client.put("/admin/users/newbie/tier", json={"tier": "Mestre"}, headers=admin_headers)
+    res = client.put("/admin/users/newbie/tier", json={"tier": None}, headers=admin_headers)
+    assert res.json()["tier_name"] == "Iniciante"
+    assert client.put("/admin/users/newbie/tier", json={"tier": "Deus"}, headers=admin_headers).status_code == 400
+    assert client.put("/admin/users/newbie/tier", json={"tier": "Mestre"}, headers=newbie_headers).status_code == 403
+
+
+def test_ensure_column_adds_missing_column():
+    from sqlalchemy import create_engine, inspect, text
+
+    from app.database import ensure_column
+
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY)"))
+    ensure_column(engine, "users", "tier_override", "VARCHAR(20)")
+    ensure_column(engine, "users", "tier_override", "VARCHAR(20)")  # idempotente
+    assert "tier_override" in {c["name"] for c in inspect(engine).get_columns("users")}

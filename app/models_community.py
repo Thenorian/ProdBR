@@ -28,6 +28,11 @@ class User(CommunityBase):
     # auto-aprovacao (AUTO_APPROVE_REPUTATION).
     edit_count: Mapped[int] = mapped_column(default=0)
     role: Mapped[str] = mapped_column(String(20), default="member")
+    # Nivel concedido por um admin (nome de um Tier, ex: "Mestre"). Funciona
+    # como piso: vale o maior entre ele e o nivel conquistado por edit_count
+    # (ver reputation_tiers.effective_tier). So selo publico - quem decide
+    # aprovacao automatica e `role`/`reputation`.
+    tier_override: Mapped[str | None] = mapped_column(String(20), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
