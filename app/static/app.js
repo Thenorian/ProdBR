@@ -178,15 +178,14 @@ function initNav() {
     guest.hidden = true;
     userBox.hidden = false;
     usernameEl.innerHTML = `${avatarHtml(username)} ${escapeHtml(username)}`;
+    // Fila aberta a qualquer logado (todos votam) - não só moderador.
+    modLink.hidden = false;
 
     fetch(`/users/${encodeURIComponent(username)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((profile) => {
         if (!profile) return;
         usernameEl.innerHTML = `${avatarHtml(username)} ${escapeHtml(username)} ${tierBadgeHtml(profile)}`;
-        if (profile.role === "moderator" || profile.role === "admin") {
-          modLink.hidden = false;
-        }
         if (profile.role === "admin") {
           const adminLink = document.getElementById("nav-admin");
           if (adminLink) adminLink.hidden = false;

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import CommunityBase
@@ -81,3 +81,19 @@ class PendingChange(CommunityBase):
     review_note: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class PendingVote(CommunityBase):
+    """Voto da comunidade numa contribuicao pendente: +1 (a favor) ou -1
+    (contra). Um voto por usuario por contribuicao (pode trocar). Saldo que
+    atinge settings.community_vote_threshold aprova/rejeita sozinho - ver
+    app/routes/moderation.py::vote."""
+
+    __tablename__ = "pending_votes"
+    __table_args__ = (UniqueConstraint("pending_id", "user_id", name="uq_vote_pending_user"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pending_id: Mapped[int] = mapped_column(ForeignKey("pending_changes.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    value: Mapped[int] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

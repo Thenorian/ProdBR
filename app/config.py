@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     reputation_per_create: int = 3
     reputation_per_update: int = 1
     reputation_penalty_reject: int = 2
+    # Votacao da comunidade na fila de moderacao: saldo (a favor - contra)
+    # que aprova/rejeita sozinho, sem moderador. Conta nova nao vota (evita
+    # alguem criar N contas pra aprovar a propria contribuicao).
+    community_vote_threshold: int = 30
+    vote_min_account_age_hours: int = 24
 
     session_ttl_hours: int = 24 * 14
 

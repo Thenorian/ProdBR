@@ -12,9 +12,14 @@ def make_product_payload(**overrides):
     return payload
 
 
-def test_moderation_queue_requires_moderator_role(client, newbie_headers):
-    res = client.get("/moderation/queue", headers=newbie_headers)
-    assert res.status_code == 403
+def test_moderation_queue_open_to_logged_users_but_decisions_are_moderator_only(client, newbie_headers):
+    # Fila aberta a qualquer logado (comunidade vota); aprovar/rejeitar direto
+    # continua so pra moderador.
+    assert client.get("/moderation/queue").status_code == 401
+    assert client.get("/moderation/queue", headers=newbie_headers).status_code == 200
+    res = client.post("/products", json=make_product_payload(), headers=newbie_headers)
+    pending_id = res.json()["pending_change_id"]
+    assert client.post(f"/moderation/{pending_id}/approve", headers=newbie_headers).status_code == 403
 
 
 def test_approve_applies_change_and_grants_reputation(client, newbie_headers, moderator_headers):
