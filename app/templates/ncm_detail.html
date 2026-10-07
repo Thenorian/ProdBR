@@ -14,5 +14,5 @@
 {% endblock %}
 {% block scripts %}
   <script>window.NCM_CODE = {{ ncm_code | tojson }};</script>
-  <script src="/static/ncm_detail.js"></script>
+  <script src="/static/ncm_detail.js?v={{ static_v }}"></script>
 {% endblock %}

@@ -14,5 +14,5 @@
 {% endblock %}
 {% block scripts %}
   <script>window.PRODUCT_ID = {{ product_id | tojson }};</script>
-  <script src="/static/product.js"></script>
+  <script src="/static/product.js?v={{ static_v }}"></script>
 {% endblock %}

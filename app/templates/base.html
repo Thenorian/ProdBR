@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}ProdBR{% endblock %}</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/style.css?v={{ static_v }}" />
 </head>
 <body>
   <header class="site-header">
@@ -77,7 +77,7 @@
     </p>
   </footer>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v={{ static_v }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

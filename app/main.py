@@ -55,6 +55,25 @@ templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 templates.env.globals["ads_snippet"] = settings.ads_snippet
 
 
+def _static_version() -> str:
+    """Hash do conteudo de app/static - entra como ?v= em todo CSS/JS dos
+    templates. Muda sozinho a cada deploy que mexe num arquivo estatico, e
+    o Cloudflare (que guarda /static por 4h) passa a tratar como arquivo
+    novo. Sem isso, depois do redesign de 2026-10-07 o HTML novo chegava com
+    o style.css velho do cache e a pagina quebrava."""
+    import hashlib
+
+    digest = hashlib.sha1()
+    for path in sorted((APP_DIR / "static").rglob("*")):
+        if path.is_file():
+            digest.update(path.name.encode())
+            digest.update(path.read_bytes())
+    return digest.hexdigest()[:10]
+
+
+templates.env.globals["static_v"] = _static_version()
+
+
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
