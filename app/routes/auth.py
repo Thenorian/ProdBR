@@ -15,6 +15,8 @@ from app.database import get_community_db
 from app.models_community import ApiKey, Session as UserSession, User
 from app.rate_limit import limiter
 from app.schemas_auth import (
+    AccountOut,
+    AccountUpdate,
     ApiKeyOut,
     LoginRequest,
     RegisterOut,
@@ -106,3 +108,43 @@ def regenerate_api_key(
     db.add(ApiKey(user_id=user.id, name="default", key_hash=hash_token(raw_key)))
     db.commit()
     return ApiKeyOut(name="default", raw_key=raw_key)
+
+
+@router.get("/me", response_model=AccountOut)
+@limiter.limit(settings.rate_limit_read)
+def get_account(request: Request, user: User = Depends(require_user)):
+    """Dados da propria conta, inclusive o e-mail (o perfil publico em
+    /users/{username} nunca mostra)."""
+    return AccountOut(username=user.username, email=user.email, role=user.role, created_at=user.created_at)
+
+
+@router.put("/me", response_model=AccountOut)
+@limiter.limit(settings.rate_limit_write)
+def update_account(
+    request: Request,
+    payload: AccountUpdate,
+    db: DbSession = Depends(get_community_db),
+    user: User = Depends(require_user),
+):
+    """Troca e-mail e/ou senha. Sempre pede a senha atual - uma chave de
+    API ou sessao vazada sozinha nao basta pra tomar a conta."""
+    if not verify_password(payload.current_password, user.password_hash, user.password_salt):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Senha atual incorreta.")
+    if payload.email is None and payload.new_password is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nada para alterar.")
+
+    if payload.email is not None and payload.email != user.email:
+        taken = db.query(User).filter(User.email == payload.email, User.id != user.id).first()
+        if taken is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="E-mail ja em uso.")
+        user.email = payload.email
+
+    if payload.new_password is not None:
+        user.password_hash, user.password_salt = hash_password(payload.new_password)
+        # Encerra todas as sessoes de login: se alguma vazou, deixa de valer.
+        # Chaves de API continuam (uso programatico) - pra revogar, gerar outra.
+        db.query(UserSession).filter(UserSession.user_id == user.id).delete()
+
+    db.commit()
+    db.refresh(user)
+    return AccountOut(username=user.username, email=user.email, role=user.role, created_at=user.created_at)

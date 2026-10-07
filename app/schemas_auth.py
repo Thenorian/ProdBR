@@ -27,6 +27,31 @@ class RegisterRequest(BaseModel):
         return v
 
 
+
+class AccountUpdate(BaseModel):
+    """Edicao da propria conta. Username nao muda: o historico de edicoes
+    (Revision.contributor) guarda o nome como texto, renomear quebraria a
+    autoria de tudo que a pessoa ja editou."""
+
+    current_password: str
+    email: str | None = None
+    new_password: str | None = Field(None, min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def valid_email(cls, v: str | None) -> str | None:
+        if v is not None and not EMAIL_RE.match(v):
+            raise ValueError("E-mail invalido.")
+        return v
+
+
+class AccountOut(BaseModel):
+    username: str
+    email: str
+    role: str
+    created_at: datetime
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str
