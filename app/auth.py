@@ -88,5 +88,13 @@ def require_moderator(user: User = Depends(require_user)) -> User:
     return user
 
 
+def require_admin(user: User = Depends(require_user)) -> User:
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Acao restrita a administradores."
+        )
+    return user
+
+
 def can_auto_approve(user: User) -> bool:
     return user.role in ("moderator", "admin") or user.reputation >= settings.auto_approve_reputation

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Usuários — ProdBR{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>Usuários</h1>
+    <p>Moderadores e administradores têm as contribuições aplicadas na hora, sem passar pela fila de moderação. Use para contas de confiança, como a integração do Simple ERP.</p>
+  </div>
+  <div id="users"><p class="empty">Carregando...</p></div>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/admin_users.js"></script>
+{% endblock %}

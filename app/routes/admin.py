@@ -1,0 +1,69 @@
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session as DbSession
+
+from app.auth import require_admin
+from app.config import settings
+from app.database import get_community_db
+from app.models_community import ROLES, User
+from app.rate_limit import limiter
+from app.reputation_tiers import user_public
+
+router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+class RoleUpdate(BaseModel):
+    role: str
+
+
+def _admin_view(user: User) -> dict:
+    # Perfil publico + e-mail: so o admin ve, pra saber de quem e cada conta
+    # (ex: conta tecnica de integracao do Simple ERP).
+    return {**user_public(user).model_dump(), "email": user.email}
+
+
+@router.get("/users")
+@limiter.limit(settings.rate_limit_read)
+def list_users(
+    request: Request,
+    db_community: DbSession = Depends(get_community_db),
+    admin: User = Depends(require_admin),
+):
+    """Todos os usuarios (inclusive iniciantes, que o ranking publico de
+    /users esconde) - base da tela de gestao de niveis."""
+    users = db_community.query(User).order_by(User.created_at).all()
+    return [_admin_view(u) for u in users]
+
+
+@router.put("/users/{username}/role")
+@limiter.limit(settings.rate_limit_write)
+def update_role(
+    request: Request,
+    username: str,
+    payload: RoleUpdate,
+    db_community: DbSession = Depends(get_community_db),
+    admin: User = Depends(require_admin),
+):
+    """Muda o papel (member/moderator/admin) de outro usuario. moderator e
+    admin tem as contribuicoes aplicadas direto, sem fila de moderacao (ver
+    app/changes.py::can_auto_approve) - e assim que uma conta de integracao
+    confiavel (ex: Simple ERP) passa a cadastrar produto com codigo de
+    barras na hora."""
+    if payload.role not in ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Papel invalido. Use um de: {', '.join(ROLES)}.",
+        )
+    user = db_community.query(User).filter(User.username == username).first()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario nao encontrado.")
+    # Nunca o proprio papel - evita o admin se trancar pra fora sem querer.
+    # Isso tambem garante que sempre sobra pelo menos um admin (quem pede).
+    if user.id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Voce nao pode mudar o seu proprio papel."
+        )
+    user.role = payload.role
+    db_community.commit()
+    db_community.refresh(user)
+    return _admin_view(user)

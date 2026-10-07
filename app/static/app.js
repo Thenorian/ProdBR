@@ -187,6 +187,10 @@ function initNav() {
         if (profile.role === "moderator" || profile.role === "admin") {
           modLink.hidden = false;
         }
+        if (profile.role === "admin") {
+          const adminLink = document.getElementById("nav-admin");
+          if (adminLink) adminLink.hidden = false;
+        }
       })
       .catch(() => {});
   } else {
