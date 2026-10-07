@@ -37,19 +37,27 @@ function render(profile) {
       <h2>Dados da conta</h2>
       <p class="subtitle">O nome de usuário não muda (ele assina o histórico das suas edições). Para alterar e-mail ou senha, confirme a senha atual.</p>
       <form id="account-form">
-        <label>E-mail
+        <div class="form-group">
+          <label for="acc-email">E-mail</label>
           <input type="email" id="acc-email" required autocomplete="email" />
-        </label>
-        <label>Nova senha <span class="form-hint" style="display:inline;">(deixe em branco para manter)</span>
+        </div>
+        <div class="form-group">
+          <label for="acc-new-password">Nova senha</label>
           <input type="password" id="acc-new-password" minlength="8" autocomplete="new-password" />
-        </label>
-        <label>Repita a nova senha
+          <div class="form-hint">Deixe em branco para manter a atual. Mínimo 8 caracteres.</div>
+        </div>
+        <div class="form-group">
+          <label for="acc-new-password2">Repita a nova senha</label>
           <input type="password" id="acc-new-password2" minlength="8" autocomplete="new-password" />
-        </label>
-        <label>Senha atual
+        </div>
+        <div class="form-group">
+          <label for="acc-current-password">Senha atual</label>
           <input type="password" id="acc-current-password" required autocomplete="current-password" />
-        </label>
-        <button type="submit" class="btn">Salvar alterações</button>
+          <div class="form-hint">Obrigatória para qualquer alteração.</div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn">Salvar alterações</button>
+        </div>
       </form>
       <div class="form-message" id="account-message" hidden></div>
     </div>

@@ -9,37 +9,55 @@
 <body>
   <header class="site-header">
     <div class="site-header-row">
-      <a class="brand" href="/">Prod<span>BR</span></a>
+      <a class="brand" href="/">
+        <span class="brand-name">Prod<span>BR</span></span>
+        <span class="brand-tagline">A enciclopédia livre de produtos</span>
+      </a>
 
-      <form class="header-search" onsubmit="return false;">
-        <input id="global-search" type="text" placeholder="Buscar produto, código de barras ou NCM..." />
+      <form class="header-search" onsubmit="return false;" role="search">
+        <input id="global-search" type="search" placeholder="Pesquisar no ProdBR" aria-label="Pesquisar no ProdBR" />
       </form>
 
-      <nav class="site-nav">
-        <a href="/">Página inicial</a>
-        <a href="/new">Cadastrar produto</a>
-        <a href="/view/ncm">NCM</a>
-        <a href="/about">Sobre</a>
-        <a href="/mod" id="nav-mod" hidden>Pendentes</a>
-        <a href="/admin" id="nav-admin" hidden>Usuários</a>
-        <a href="/docs" class="nav-api-link" target="_blank" rel="noopener">
-          <span class="nav-api-dot"></span>API / Swagger
-        </a>
+      <div class="personal-links">
         <span id="nav-guest">
+          <a href="/register">Criar conta</a>
           <a href="/login">Entrar</a>
-          <a href="/register" class="btn btn-sm">Registrar</a>
         </span>
         <span id="nav-user" hidden>
           <a href="/account" id="nav-username" class="nav-username"></a>
           <button id="nav-logout" class="btn-link">Sair</button>
         </span>
-      </nav>
+      </div>
     </div>
   </header>
 
-  <main class="page">
-    {% block content %}{% endblock %}
-  </main>
+  <div class="layout">
+    <nav class="sidebar site-nav" aria-label="Navegação do site">
+      <div class="sidebar-section">
+        <h3>Navegação</h3>
+        <a href="/">Página principal</a>
+        <a href="/new">Cadastrar produto</a>
+        <a href="/view/ncm">Classificação NCM</a>
+        <a href="/#changes">Mudanças recentes</a>
+        <a href="/about">Sobre o ProdBR</a>
+      </div>
+      <div class="sidebar-section" id="nav-community" hidden>
+        <h3>Comunidade</h3>
+        <a href="/mod" id="nav-mod" hidden>Contribuições pendentes</a>
+        <a href="/admin" id="nav-admin" hidden>Usuários</a>
+      </div>
+      <div class="sidebar-section">
+        <h3>Ferramentas</h3>
+        <a href="/docs" class="nav-api-link" target="_blank" rel="noopener">API (Swagger)</a>
+        <a href="/export/sqlite">Baixar a base completa</a>
+        <a href="https://github.com/Thenorian/ProdBR" target="_blank" rel="noopener">Código-fonte</a>
+      </div>
+    </nav>
+
+    <main class="page">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
 
   {% if ads_snippet %}
     <div class="ad-slot">
@@ -50,9 +68,12 @@
 
   <footer class="site-footer">
     <p>
-      ProdBR — base pública e colaborativa de produtos brasileiros.
-      Software <a href="/license">AGPLv3</a> · Dados <a href="/data-license">ODbL v1.0</a> ·
-      <a href="/docs">API</a> · <a href="https://github.com/Thenorian/ProdBR" target="_blank" rel="noopener">GitHub</a>
+      ProdBR — base pública e colaborativa de produtos brasileiros. Os dados estão disponíveis sob a
+      <a href="/data-license">ODbL v1.0</a>; o software, sob a <a href="/license">AGPLv3</a>.
+    </p>
+    <p>
+      <a href="/about">Sobre o ProdBR</a> · <a href="/docs">API</a> ·
+      <a href="https://github.com/Thenorian/ProdBR" target="_blank" rel="noopener">GitHub</a>
     </p>
   </footer>
 

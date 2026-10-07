@@ -180,6 +180,8 @@ function initNav() {
     usernameEl.innerHTML = `${avatarHtml(username)} ${escapeHtml(username)}`;
     // Fila aberta a qualquer logado (todos votam) - não só moderador.
     modLink.hidden = false;
+    const community = document.getElementById("nav-community");
+    if (community) community.hidden = false;
 
     fetch(`/users/${encodeURIComponent(username)}`)
       .then((r) => (r.ok ? r.json() : null))

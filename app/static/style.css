@@ -1,61 +1,66 @@
+/* Tema wiki (2026-10-07): visual de enciclopedia - fundo branco, titulos
+   com serifa sublinhados, links azuis, bordas cinza finas, quase sem
+   arredondamento e sem sombra/gradiente/blur. Antes era roxo, cartoes
+   flutuando e brilho - "cara de site de IA", pedido explicito pra mudar. */
 :root {
   color-scheme: light dark;
-  --fg: #1a1c23;
+  --fg: #202122;
   --bg: #ffffff;
-  --page-bg: #f4f5f8;
+  --page-bg: #f8f9fa;
   --card-bg: #ffffff;
-  --hover-bg: #eef0f5;
-  --muted: #6b7280;
-  --link: #4338ca;
-  --accent: #4f46e5;
-  --accent-2: #0d9488;
+  --hover-bg: #eaecf0;
+  --muted: #54595d;
+  --link: #3366cc;
+  --link-visited: #795cb2;
+  --accent: #3366cc;
+  --accent-2: #3366cc;
   --accent-fg: #ffffff;
-  --border: #d7dae0;
-  --border-light: #e8eaef;
-  --danger: #dc2626;
-  --danger-tint: #fee2e2;
-  --danger-tint-fg: #991b1b;
-  --success: #059669;
-  --success-tint: #d1fae5;
-  --success-tint-fg: #065f46;
-  --warning-tint: #fef3c7;
-  --warning-tint-fg: #854d0e;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
-  --serif: "Source Serif 4", "Iowan Old Style", Georgia, Cambria, "Times New Roman", serif;
-  --radius-sm: 7px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --shadow-sm: 0 1px 2px rgba(20, 21, 35, .05), 0 1px 1px rgba(20, 21, 35, .04);
-  --shadow-md: 0 8px 24px rgba(20, 21, 35, .10), 0 2px 6px rgba(20, 21, 35, .06);
-  --shadow-lg: 0 16px 40px rgba(20, 21, 35, .16), 0 4px 10px rgba(20, 21, 35, .08);
-  --transition: .15s ease;
+  --border: #a2a9b1;
+  --border-light: #c8ccd1;
+  --box-header: #eaecf0;
+  --danger: #d73333;
+  --danger-tint: #fee7e6;
+  --danger-tint-fg: #8a1f11;
+  --success: #14866d;
+  --success-tint: #d5fdf4;
+  --success-tint-fg: #096450;
+  --warning-tint: #fef6e7;
+  --warning-tint-fg: #705000;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: "Linux Libertine", "Georgia", "Times New Roman", Times, serif;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --transition: .1s ease;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --fg: #e7e8f0;
-    --bg: #14161d;
-    --page-bg: #0b0c11;
-    --card-bg: #1a1d25;
-    --hover-bg: #21242e;
-    --muted: #9aa1b0;
-    --link: #a3aef8;
-    --accent: #8b93f5;
-    --accent-2: #2dd4bf;
-    --accent-fg: #11121b;
-    --border: #2c303b;
-    --border-light: #23262f;
-    --danger: #f87171;
-    --danger-tint: #3a1414;
-    --danger-tint-fg: #fca5a5;
-    --success: #34d399;
-    --success-tint: #0d2a22;
-    --success-tint-fg: #6ee7b7;
-    --warning-tint: #3a2a06;
-    --warning-tint-fg: #facc15;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .35), 0 1px 1px rgba(0, 0, 0, .25);
-    --shadow-md: 0 10px 28px rgba(0, 0, 0, .45), 0 2px 6px rgba(0, 0, 0, .3);
-    --shadow-lg: 0 20px 48px rgba(0, 0, 0, .55), 0 4px 12px rgba(0, 0, 0, .35);
+    --fg: #eaecf0;
+    --bg: #101418;
+    --page-bg: #1b1d21;
+    --card-bg: #101418;
+    --hover-bg: #27292d;
+    --muted: #a2a9b1;
+    --link: #88a3e8;
+    --link-visited: #a799cd;
+    --accent: #88a3e8;
+    --accent-2: #88a3e8;
+    --accent-fg: #101418;
+    --border: #54595d;
+    --border-light: #3a3d42;
+    --box-header: #27292d;
+    --danger: #fd7865;
+    --danger-tint: #3a1a17;
+    --danger-tint-fg: #fd7865;
+    --success: #4ed1b1;
+    --success-tint: #0e2a24;
+    --success-tint-fg: #4ed1b1;
+    --warning-tint: #33290c;
+    --warning-tint-fg: #f0c445;
   }
 }
 
@@ -923,4 +928,276 @@ code { font-family: ui-monospace, "Courier New", monospace; }
   padding: 1.2rem 1.3rem;
   background: var(--hover-bg);
   margin-bottom: 1.3rem;
+}
+
+/* =====================================================================
+   Tema wiki - camada final (sobrescreve os componentes acima que tinham
+   cara de "landing page": header com blur, hero com gradiente, cartoes
+   flutuando, logo com degrade). Mantem todos os nomes de classe usados
+   pelos templates/JS.
+   ===================================================================== */
+
+body { font-size: 14px; line-height: 1.6; background: var(--page-bg); }
+a:visited { color: var(--link-visited); }
+a:hover { text-decoration: underline; }
+
+h1, h2, .page-header h1, .article-header h1, .form-card h1 {
+  font-family: var(--serif);
+  font-weight: normal;
+  letter-spacing: 0;
+}
+.page-header h1, .article-header h1, .form-card h1 {
+  font-size: 1.9rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: .15rem;
+  margin: 0 0 .5rem;
+}
+.page-header { margin-bottom: 1rem; padding: 0; border: 0; background: none; }
+.page-header p, .article-subtitle { color: var(--muted); font-size: .9rem; margin: 0; }
+
+.section-title {
+  font-family: var(--serif);
+  font-weight: normal;
+  font-size: 1.45rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: .1rem;
+  margin: 1.6rem 0 .6rem;
+}
+.section-title::before { content: none; display: none; }
+
+/* --- Cabecalho --- */
+.site-header {
+  position: static;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-light);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+.site-header-row {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: .55rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.brand { display: flex; flex-direction: column; line-height: 1.1; color: var(--fg); }
+.brand::before { content: none; display: none; }
+.brand:hover, .brand:visited { text-decoration: none; color: var(--fg); }
+.brand-name { font-family: var(--serif); font-size: 1.7rem; letter-spacing: .02em; }
+/* .brand span (regra antiga) pintava qualquer span do logo com a cor de destaque. */
+.brand .brand-name, .brand .brand-name span { color: var(--fg); }
+.brand .brand-tagline { font-family: var(--serif); font-size: .8rem; color: var(--muted); }
+.header-search { flex: 1; max-width: 520px; }
+.header-search input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .4rem .6rem;
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: none;
+}
+.header-search input:focus-visible { outline: none; border-color: var(--link); box-shadow: inset 0 0 0 1px var(--link); }
+.personal-links { margin-left: auto; font-size: .85rem; white-space: nowrap; }
+.personal-links > span { display: inline-flex; gap: .8rem; align-items: center; }
+.personal-links > span[hidden] { display: none !important; }
+.nav-username { color: var(--link); padding: 0; background: none; border: 0; }
+
+/* --- Layout com menu lateral --- */
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+}
+.sidebar { padding: 1rem .9rem 2rem 1rem; font-size: .85rem; display: block; }
+.sidebar-section { margin-bottom: 1.2rem; }
+.sidebar-section h3 {
+  font-family: var(--sans);
+  font-size: .75rem;
+  font-weight: normal;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border-light);
+  margin: 0 0 .35rem;
+  padding-bottom: .15rem;
+}
+.sidebar a, .site-nav > a, .site-nav a.nav-api-link {
+  display: block;
+  padding: .12rem 0;
+  color: var(--link);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  font-weight: normal;
+}
+.sidebar a:hover { background: none; text-decoration: underline; }
+.nav-api-dot { display: none; }
+
+.page {
+  max-width: none;
+  margin: 0;
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-right: 0;
+  padding: 1.2rem 1.6rem 2.5rem;
+  min-height: 70vh;
+}
+
+/* --- Botoes: retos e discretos --- */
+.btn {
+  background: var(--link);
+  color: #fff;
+  border: 1px solid var(--link);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  font-weight: 600;
+  padding: .4rem .9rem;
+  transform: none;
+}
+.btn:hover { filter: brightness(1.1); transform: none; box-shadow: none; text-decoration: none; color: #fff; }
+.btn-outline, .btn-sm.btn-outline {
+  background: var(--page-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover { background: var(--bg); color: var(--fg); filter: none; }
+.btn-approve { background: var(--success); border-color: var(--success); }
+.btn-reject { background: var(--danger); border-color: var(--danger); }
+.btn-link { color: var(--link); }
+
+/* --- Pagina principal --- */
+.wiki-hero, .mainpage-welcome {
+  background: var(--page-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 0;
+  padding: 1.1rem 1.3rem 1.2rem;
+  margin: 0 0 1rem;
+  text-align: center;
+  box-shadow: none;
+  overflow: visible;
+}
+.wiki-hero::before { content: none; display: none; }
+.wiki-hero h1 { font-family: var(--serif); font-weight: normal; font-size: 1.9rem; margin: 0 0 .2rem; border: 0; }
+.wiki-hero h1 span { color: var(--link); }
+.wiki-hero p { color: var(--fg); font-size: .95rem; margin: 0 0 .9rem; }
+.wiki-hero p strong { font-weight: 600; }
+.search-box { max-width: 560px; margin: 0 auto; display: flex; gap: .4rem; box-shadow: none; }
+.search-box input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .45rem .6rem;
+  font-size: .95rem;
+  box-shadow: none;
+}
+.search-box input:focus-visible { outline: none; border-color: var(--link); box-shadow: inset 0 0 0 1px var(--link); }
+
+.mainpage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.mainpage-box { border: 1px solid var(--border-light); margin: 0 0 1rem; background: var(--bg); }
+.mainpage-box-title {
+  font-family: var(--sans);
+  font-size: 1rem;
+  font-weight: bold;
+  background: var(--box-header);
+  border-bottom: 1px solid var(--border-light);
+  padding: .3rem .7rem;
+  margin: 0;
+}
+.mainpage-box-body { padding: .6rem .9rem; }
+.mainpage-box-body p { margin: 0 0 .6rem; }
+
+/* --- Cartoes, listas e estatisticas: sem flutuar --- */
+.card, .stat-card, .portal-section, .form-card, .mod-item, .infobox, .ncm-preview-card, .change-row,
+.history-row, .contributor-row {
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+.card, .portal-section, .form-card, .mod-item, .stat-card { border: 1px solid var(--border-light); background: var(--bg); }
+.card:hover, .stat-card:hover, .portal-section:hover, .change-row:hover, .history-row:hover, .contributor-row:hover {
+  box-shadow: none;
+  transform: none;
+  background: var(--page-bg);
+}
+.portal-section, .portal-section:nth-child(n) { border-top: 1px solid var(--border-light); }
+.card h3, .portal-section h3 { font-family: var(--serif); font-weight: normal; font-size: 1.1rem; }
+.badge { border-radius: var(--radius-sm); font-weight: normal; }
+.code-block, pre { border-radius: 0; border: 1px solid var(--border-light); background: var(--page-bg); }
+
+/* Tabelas no padrao "wikitable" */
+.id-table, .fiscal-table, .infobox table { border-collapse: collapse; }
+.id-table th, .id-table td, .fiscal-table th, .fiscal-table td, .infobox th, .infobox td {
+  border: 1px solid var(--border);
+  padding: .3rem .5rem;
+}
+.id-table th, .fiscal-table th, .infobox th { background: var(--box-header); font-weight: bold; }
+.infobox { border: 1px solid var(--border); background: var(--page-bg); }
+.infobox-header { background: var(--box-header); font-family: var(--serif); border-radius: 0; }
+
+.tab-bar { border-bottom: 1px solid var(--border); gap: 0; }
+.tab-btn { border-radius: 0; border: 1px solid transparent; border-bottom: 0; background: none; }
+.tab-btn.active { border-color: var(--border); background: var(--bg); color: var(--fg); margin-bottom: -1px; }
+
+/* Listas de produtos ocupam a largura da caixa (antes: coluna estreita
+   centralizada, cara de feed). */
+.mainpage-box .results, #results {
+  max-width: none;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: .6rem;
+}
+#results:not(:empty) { margin-bottom: 1rem; }
+.card { padding: .6rem .8rem; }
+.card h3 { margin: 0 0 .3rem; }
+
+/* Tela de usuarios (admin): papel e nivel lado a lado */
+.admin-user-actions { flex-wrap: wrap; align-items: flex-end; gap: .5rem .8rem; }
+.admin-user-actions label { display: flex; flex-direction: column; font-size: .8rem; color: var(--muted); gap: .15rem; }
+.admin-user-actions select { padding: .3rem .4rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--fg); }
+
+/* Votacao da fila de pendentes */
+.btn-vote {
+  background: var(--page-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  font-weight: normal;
+}
+.btn-vote:hover { color: var(--fg); }
+.btn-vote.active { background: var(--link); border-color: var(--link); color: #fff; }
+.vote-score { color: var(--muted); font-size: .85rem; align-self: center; }
+.reject-note {
+  flex: 1;
+  padding: .35rem .6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.site-footer {
+  max-width: 1280px;
+  margin: 0 auto;
+  border-top: 0;
+  background: none;
+  font-size: .8rem;
+  color: var(--muted);
+  padding: 1rem 1rem 2rem 12rem;
+  text-align: left;
+}
+.site-footer p { margin: .2rem 0; }
+
+@media (max-width: 760px) {
+  .site-header-row { flex-wrap: wrap; gap: .6rem; }
+  .header-search { order: 3; flex-basis: 100%; max-width: none; }
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { display: flex; flex-wrap: wrap; gap: 0 1.2rem; padding: .5rem 1rem; border-bottom: 1px solid var(--border-light); }
+  .sidebar-section { margin-bottom: .4rem; }
+  .sidebar-section h3 { display: none; }
+  .sidebar a { display: inline-block; margin-right: .8rem; }
+  .page { border-left: 0; padding: 1rem; }
+  .mainpage-grid { grid-template-columns: 1fr; }
+  .site-footer { padding-left: 1rem; }
 }

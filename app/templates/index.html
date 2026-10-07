@@ -1,40 +1,52 @@
 {% extends "base.html" %}
 {% block title %}ProdBR — a enciclopédia livre de produtos brasileiros{% endblock %}
 {% block content %}
-  <div class="wiki-hero">
-    <p class="hero-kicker">Base pública · colaborativa · gratuita</p>
-    <h1>Prod<span>BR</span></h1>
-    <p>A base de dados livre e colaborativa de produtos brasileiros — que qualquer pessoa pode consultar, baixar e editar.</p>
+  <div class="mainpage-welcome wiki-hero">
+    <h1>Bem-vindo ao <span>ProdBR</span>,</h1>
+    <p>
+      a base de dados livre de produtos brasileiros que qualquer pessoa pode consultar, baixar e editar.
+      <br />
+      <strong id="stat-products">—</strong> produtos catalogados · <strong id="stat-revisions">—</strong> edições registradas
+    </p>
 
     <div class="search-box">
-      <input id="query" type="text" placeholder="Buscar produto, código de barras/GTIN ou NCM..." autofocus />
+      <input id="query" type="search" placeholder="Produto, código de barras/GTIN ou NCM" autofocus />
       <button id="search-btn" class="btn">Pesquisar</button>
-    </div>
-
-    <div class="hero-actions">
-      <a href="/docs" class="btn btn-outline btn-sm" target="_blank" rel="noopener">📘 Documentação da API (Swagger)</a>
-      <a href="/export/sqlite" class="btn-link">Baixar a base completa</a>
-    </div>
-
-    <div class="stats-row">
-      <div class="stat-card"><strong id="stat-products">—</strong>produtos catalogados</div>
-      <div class="stat-card"><strong id="stat-revisions">—</strong>edições registradas</div>
-      <a class="stat-card stat-card-link" href="/docs" target="_blank" rel="noopener"><strong>API →</strong>use os dados no seu sistema</a>
     </div>
   </div>
 
   <div id="results" class="results"></div>
 
-  <div class="about-section">
-    <h2 class="section-title">Sobre o projeto</h2>
-    <p>
-      O ProdBR é uma base aberta de identificação de produtos brasileiros: dado um código de barras, GTIN ou NCM,
-      ela devolve nome, marca, categoria e a classificação fiscal do produto — e, à parte, as alíquotas de referência
-      (ICMS, IPI, PIS, COFINS, CBS/IBS e mais) aplicáveis a essa classificação. Existe pra evitar que cada sistema
-      precise descobrir do zero qual é o NCM e a tributação de um produto: cadastre uma vez, todo mundo com o mesmo
-      NCM se beneficia. Mantido pela Thenorian, mas aberto — qualquer pessoa pode consultar, contribuir ou hospedar
-      sua própria cópia. <a href="/about">Leia mais sobre o projeto →</a>
-    </p>
+  <div class="mainpage-grid">
+    <section class="mainpage-box">
+      <h2 class="mainpage-box-title">Sobre o projeto</h2>
+      <div class="mainpage-box-body">
+        <p>
+          Dado um código de barras, GTIN ou NCM, o ProdBR devolve nome, marca, categoria e a classificação fiscal do
+          produto — e, à parte, as alíquotas de referência (ICMS, IPI, PIS, COFINS, CBS/IBS e mais) dessa classificação.
+          Cadastre uma vez e todo sistema com o mesmo NCM se beneficia.
+        </p>
+        <p>
+          Um mesmo produto pode ter vários códigos de barras — um para cada embalagem (1 kg, 2 kg, 15 kg...) —
+          porque os dados fiscais são os mesmos. <a href="/about">Leia mais sobre o projeto</a>.
+        </p>
+      </div>
+    </section>
+
+    <section class="mainpage-box">
+      <h2 class="mainpage-box-title">Para desenvolvedores</h2>
+      <div class="mainpage-box-body">
+        <p>
+          Toda leitura é pública, sem autenticação. Para contribuir, crie uma conta e use a sua chave de API
+          (veja <a href="/account">Minha conta</a>) no header <code>X-API-Key</code>.
+        </p>
+        <pre class="code-block">curl "https://prodbr.thenorian.com/products?ncm=22030000"</pre>
+        <p>
+          <a href="/docs" target="_blank" rel="noopener">Documentação completa da API</a> ·
+          <a href="/export/sqlite">Baixar a base completa</a>
+        </p>
+      </div>
+    </section>
   </div>
 
   {% if ads_snippet %}
@@ -44,38 +56,33 @@
     </div>
   {% endif %}
 
-  <h2 class="section-title">Últimos cadastrados</h2>
-  <div id="latest" class="results"><p class="empty">Carregando...</p></div>
+  <section class="mainpage-box">
+    <h2 class="mainpage-box-title">Últimos cadastrados</h2>
+    <div class="mainpage-box-body">
+      <div id="latest" class="results"><p class="empty">Carregando...</p></div>
+    </div>
+  </section>
 
-  <h2 class="section-title">Produtos recentes por categoria</h2>
-  <div id="portal" class="portal-grid"><p class="empty">Carregando...</p></div>
+  <section class="mainpage-box">
+    <h2 class="mainpage-box-title">Produtos recentes por categoria</h2>
+    <div class="mainpage-box-body">
+      <div id="portal" class="portal-grid"><p class="empty">Carregando...</p></div>
+    </div>
+  </section>
 
-  <h2 class="section-title">Mudanças recentes</h2>
-  <div id="changes" class="changes-list"><p class="empty">Carregando...</p></div>
+  <section class="mainpage-box" id="changes-box">
+    <h2 class="mainpage-box-title" id="changes-title">Mudanças recentes</h2>
+    <div class="mainpage-box-body">
+      <div id="changes" class="changes-list"><p class="empty">Carregando...</p></div>
+    </div>
+  </section>
 
-  <div class="about-section">
-    <h2 class="section-title">Como usar a API</h2>
-    <p>
-      Toda leitura é pública, sem autenticação. Pra contribuir (cadastrar ou editar), crie uma conta e use a chave
-      de API pessoal (mostrada uma única vez no cadastro — veja <a href="/account">Minha conta</a> se precisar gerar
-      uma nova) no header <code>X-API-Key</code>:
-    </p>
-    <pre class="code-block">curl "https://sua-instancia/products?ncm=22030000"
-
-curl -X POST "https://sua-instancia/products" \
-  -H "X-API-Key: SUA_CHAVE_AQUI" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Cerveja 600ml","ncm":"22030000","source":"fabricante","reason":"cadastro inicial"}'</pre>
-    <p class="form-hint">
-      Documentação interativa completa (todos os endpoints, testável direto no navegador) em
-      <a href="/docs" target="_blank" rel="noopener">/docs</a> (Swagger).
-    </p>
-  </div>
-
-  <div class="about-section">
-    <h2 class="section-title">Bibliografia — o que significa cada sigla</h2>
-    <dl id="glossary" class="glossary-grid"></dl>
-  </div>
+  <section class="mainpage-box">
+    <h2 class="mainpage-box-title">Glossário — o que significa cada sigla</h2>
+    <div class="mainpage-box-body">
+      <dl id="glossary" class="glossary-grid"></dl>
+    </div>
+  </section>
 {% endblock %}
 {% block scripts %}
   <script src="/static/home.js"></script>
