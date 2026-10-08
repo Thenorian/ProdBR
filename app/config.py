@@ -50,5 +50,9 @@ class Settings(BaseSettings):
     # sitemap.xml e no llms.txt. Vazio = deduz da requisicao.
     public_url: str = ""
 
+    # Atualiza a tabela NCM oficial (Siscomex) sozinho, uma vez por dia, em
+    # segundo plano - quem hospeda nao precisa configurar cron nenhum.
+    ncm_auto_update: bool = True
+
 
 settings = Settings()

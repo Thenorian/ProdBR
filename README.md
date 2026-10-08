@@ -167,6 +167,16 @@ o nome do recebedor) e/ou `DONATION_URL` (GitHub Sponsors, Apoia.se...) no
 "Apoie o projeto" no menu e um aviso discreto na home. Vazias (padrão), nada
 aparece - quem hospeda a própria cópia nunca exibe a chave de outra pessoa.
 
+## Tabela NCM oficial (automática)
+
+A classificação NCM vem direto da tabela oficial do governo (Portal Único
+Siscomex, JSON público): os ~10,5 mil códigos de 8 dígitos vigentes, com a
+descrição completa da hierarquia ("Preparações ... de animais > Alimentos
+para cães ou gatos ..."). O app atualiza sozinho uma vez por dia em segundo
+plano (`NCM_AUTO_UPDATE=true`, padrão) - nada de cron. Pra carregar na hora:
+`python -m scripts.import_ncm`. Só cria e atualiza; NCM que sai da tabela não
+é apagado (pode haver produto usando).
+
 ## Robôs, buscadores e IAs
 
 A base é pública: `/robots.txt` libera todos os robôs, inclusive os de IA

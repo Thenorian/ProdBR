@@ -11,6 +11,8 @@ os.environ["COMMUNITY_DATABASE_URL"] = "sqlite:///./test_community.sqlite3"
 os.environ["RATE_LIMIT_READ"] = "1000/minute"
 os.environ["RATE_LIMIT_WRITE"] = "1000/minute"
 os.environ["AUTO_APPROVE_REPUTATION"] = "20"
+# Testes nunca acessam a rede (atualizacao diaria da tabela NCM oficial).
+os.environ["NCM_AUTO_UPDATE"] = "false"
 
 from fastapi.testclient import TestClient  # noqa: E402
 

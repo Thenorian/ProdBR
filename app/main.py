@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -27,7 +28,40 @@ for _col, _ddl in (
 ):
     ensure_column(public_engine, "product_identifiers", _col, _ddl)
 
+def _start_ncm_auto_update():
+    """Tabela NCM oficial sempre em dia sem cron: thread em segundo plano
+    que atualiza 1x por dia (a primeira 1 min depois de subir, pra nao
+    atrasar o boot). Falha de rede so loga - tenta de novo no dia seguinte."""
+    if not settings.ncm_auto_update:
+        return
+    import logging
+    import threading
+    import time
+
+    from app.database import PublicSession
+    from app.ncm_official import update_from_siscomex
+
+    log = logging.getLogger("prodbr.ncm")
+
+    def loop():
+        time.sleep(60)
+        while True:
+            try:
+                log.warning("NCM oficial atualizado: %s", update_from_siscomex(PublicSession))
+            except Exception as exc:  # noqa: BLE001 - nunca derruba o app
+                log.warning("Falha ao atualizar a tabela NCM oficial: %s", exc)
+            time.sleep(24 * 3600)
+
+    threading.Thread(target=loop, name="ncm-auto-update", daemon=True).start()
+
+@asynccontextmanager
+async def lifespan(app):
+    _start_ncm_auto_update()
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="ProdBR API",
     description=(
         "Base publica e colaborativa de produtos brasileiros: identificacao "
