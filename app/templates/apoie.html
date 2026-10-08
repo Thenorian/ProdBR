@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Apoie o ProdBR{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>Apoie o ProdBR</h1>
+    <p>O ProdBR é gratuito, aberto e sem anúncios obrigatórios. Doações ajudam a pagar servidor, domínio e o tempo de manutenção.</p>
+  </div>
+
+  {% if donation.enabled %}
+    <div class="mainpage-grid">
+      {% if donation.pix_key %}
+      <section class="mainpage-box">
+        <h2 class="mainpage-box-title">Pix</h2>
+        <div class="mainpage-box-body">
+          <p>Chave Pix:</p>
+          <p><code id="pix-key" class="pix-key">{{ donation.pix_key }}</code></p>
+          {% if donation.pix_holder %}<p class="form-hint">Recebedor: <strong>{{ donation.pix_holder }}</strong> — confira o nome antes de confirmar.</p>{% endif %}
+          <button type="button" class="btn btn-sm" id="copy-pix">Copiar chave Pix</button>
+          <span id="copy-pix-msg" class="form-hint" hidden>Copiada!</span>
+        </div>
+      </section>
+      {% endif %}
+      {% if donation.url %}
+      <section class="mainpage-box">
+        <h2 class="mainpage-box-title">Outras formas</h2>
+        <div class="mainpage-box-body">
+          <p>Doação recorrente ou por cartão:</p>
+          <p><a href="{{ donation.url }}" target="_blank" rel="noopener">{{ donation.url_label }}</a></p>
+        </div>
+      </section>
+      {% endif %}
+    </div>
+  {% else %}
+    <p>Esta instância do ProdBR não recebe doações.</p>
+  {% endif %}
+
+  <section class="mainpage-box">
+    <h2 class="mainpage-box-title">Outras formas de ajudar (sem gastar nada)</h2>
+    <div class="mainpage-box-body">
+      <ul>
+        <li><a href="/new">Cadastre produtos</a> e códigos de barras que ainda não estão na base.</li>
+        <li>Vote nas <a href="/mod">contribuições pendentes</a> para elas entrarem mais rápido.</li>
+        <li>Use a <a href="/docs" target="_blank" rel="noopener">API</a> no seu sistema e conte para outros desenvolvedores.</li>
+        <li>Contribua com código no <a href="https://github.com/Thenorian/ProdBR" target="_blank" rel="noopener">GitHub</a> — o projeto é 100% aberto.</li>
+      </ul>
+    </div>
+  </section>
+{% endblock %}
+{% block scripts %}
+  <script>
+    // Copia na hora selecionando o texto (execCommand) - não depende de
+    // permissão. navigator.clipboard pode ficar pendurado esperando
+    // permissão em alguns navegadores (visto em teste, 2026-10-08) e a
+    // mensagem nunca aparecia; fica só como reserva.
+    document.getElementById("copy-pix")?.addEventListener("click", () => {
+      const keyEl = document.getElementById("pix-key");
+      const msg = document.getElementById("copy-pix-msg");
+      const range = document.createRange();
+      range.selectNodeContents(keyEl);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      let copied = false;
+      try {
+        copied = document.execCommand("copy");
+      } catch (err) {
+        copied = false;
+      }
+      if (!copied && navigator.clipboard) {
+        navigator.clipboard.writeText(keyEl.textContent.trim()).catch(() => {});
+      }
+      msg.textContent = copied ? "Copiada!" : "Chave selecionada — use Ctrl+C para copiar.";
+      msg.hidden = false;
+    });
+  </script>
+{% endblock %}

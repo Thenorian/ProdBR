@@ -37,5 +37,18 @@ class Settings(BaseSettings):
     # da base publica.
     ads_snippet: str = ""
 
+    # Doacoes pra manter a instancia no ar. Mesma logica do ads_snippet:
+    # configuracao por instancia (variavel de ambiente), vazio = a secao de
+    # doacao nao aparece - quem hospeda a propria copia nunca exibe a chave
+    # Pix de outra pessoa.
+    donation_pix_key: str = ""
+    donation_pix_holder: str = ""  # nome do recebedor, pra conferir antes de enviar
+    donation_url: str = ""  # ex: GitHub Sponsors, Apoia.se, Catarse
+    donation_url_label: str = "Apoiar pelo site"
+
+    # URL publica da instancia (ex: https://prodbr.thenorian.com) - usada no
+    # sitemap.xml e no llms.txt. Vazio = deduz da requisicao.
+    public_url: str = ""
+
 
 settings = Settings()

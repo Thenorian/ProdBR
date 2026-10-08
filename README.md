@@ -159,6 +159,23 @@ rotulados ("Publicidade") - rodapé (todas as páginas), início da home
 (depois do conteúdo) - sempre fora do fluxo de leitura, nunca como popup,
 interstitial ou entre parágrafos de conteúdo.
 
+## Doações (opcional)
+
+Mesma ideia dos anúncios: defina `DONATION_PIX_KEY` (e `DONATION_PIX_HOLDER`,
+o nome do recebedor) e/ou `DONATION_URL` (GitHub Sponsors, Apoia.se...) no
+`.env`. Com alguma delas preenchida, aparecem a página `/apoie`, o link
+"Apoie o projeto" no menu e um aviso discreto na home. Vazias (padrão), nada
+aparece - quem hospeda a própria cópia nunca exibe a chave de outra pessoa.
+
+## Robôs, buscadores e IAs
+
+A base é pública: `/robots.txt` libera todos os robôs, inclusive os de IA
+(GPTBot, ClaudeBot, Google-Extended, PerplexityBot, CCBot...), e aponta o
+`/sitemap.xml` (todas as fichas de produto). `/llms.txt` resume o projeto e a
+API para assistentes de IA ([llmstxt.org](https://llmstxt.org)). Se a sua
+instância fica atrás do Cloudflare, confira se a opção de bloquear bots de IA
+está desligada - ela barra esses robôs antes de chegarem no app.
+
 ## Baixar a base pública
 
 `GET /export/sqlite`, `/export/sql` ou `/export/csv` — sempre só com

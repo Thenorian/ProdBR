@@ -49,6 +49,14 @@
     </section>
   </div>
 
+  {% if donation.enabled %}
+    <section class="mainpage-box donation-box">
+      <div class="mainpage-box-body">
+        O ProdBR é gratuito e aberto. Se ele te ajuda, <a href="/apoie">considere apoiar o projeto</a>.
+      </div>
+    </section>
+  {% endif %}
+
   {% if ads_snippet %}
     <div class="ad-slot ad-slot-inline">
       <span class="ad-label">Publicidade</span>

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi import _rate_limit_exceeded_handler
@@ -80,6 +80,22 @@ def _static_version() -> str:
 
 
 templates.env.globals["static_v"] = _static_version()
+templates.env.globals["donation"] = {
+    "pix_key": settings.donation_pix_key,
+    "pix_holder": settings.donation_pix_holder,
+    "url": settings.donation_url,
+    "url_label": settings.donation_url_label,
+    "enabled": bool(settings.donation_pix_key or settings.donation_url),
+}
+
+
+def _base_url(request: Request) -> str:
+    if settings.public_url:
+        return settings.public_url.rstrip("/")
+    # Atras de proxy (nginx/Cloudflare) o app ve http - respeita o esquema
+    # que o proxy informa.
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    return f"{proto}://{request.url.netloc}"
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
@@ -142,6 +158,88 @@ def admin_users_page(request: Request):
 @app.get("/account", response_class=HTMLResponse, include_in_schema=False)
 def account_page(request: Request):
     return templates.TemplateResponse("account.html", {"request": request})
+
+
+@app.get("/apoie", response_class=HTMLResponse, include_in_schema=False)
+def donation_page(request: Request):
+    return templates.TemplateResponse("apoie.html", {"request": request})
+
+
+# Base publica e aberta: TODO robo e bem-vindo, inclusive os de IA (Google,
+# OpenAI, Anthropic, Perplexity, Common Crawl...) - quanto mais gente e
+# sistema encontrar e usar os dados, melhor (pedido do mantenedor,
+# 2026-10-08). Bloqueio que exista vem de fora do app (ex: "Block AI bots"
+# do Cloudflare), nao daqui.
+AI_CRAWLERS = (
+    "GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "Claude-User",
+    "anthropic-ai", "Google-Extended", "Googlebot", "Bingbot", "PerplexityBot", "Perplexity-User",
+    "CCBot", "Applebot-Extended", "meta-externalagent", "Bytespider", "Amazonbot", "DuckAssistBot",
+)
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
+def robots_txt(request: Request):
+    lines = ["# ProdBR - base publica e aberta. Todos os robos sao bem-vindos, inclusive os de IA.", ""]
+    for bot in AI_CRAWLERS:
+        lines += [f"User-agent: {bot}", "Allow: /", ""]
+    lines += ["User-agent: *", "Allow: /", "", f"Sitemap: {_base_url(request)}/sitemap.xml", ""]
+    return "\n".join(lines)
+
+
+@app.get("/llms.txt", response_class=PlainTextResponse, include_in_schema=False)
+def llms_txt(request: Request):
+    """Resumo pra LLMs (padrao llmstxt.org): o que e o ProdBR e como usar a
+    API - ajuda assistentes de IA a responder e integrar certo."""
+    base = _base_url(request)
+    return f"""# ProdBR
+
+> Base de dados publica, gratuita e colaborativa de produtos brasileiros: dado um codigo de barras (GTIN/EAN), NCM ou nome, devolve identificacao do produto (nome, marca, fabricante, categoria, unidade), embalagens (um GTIN por tamanho, ex: 1 kg, 15 kg) e a classificacao fiscal (NCM, CEST) com aliquotas de referencia (ICMS, FCP, IPI, PIS, COFINS, II, CBS/IBS). Feita para ERPs, PDVs e emissores de NF-e/NFC-e. Software AGPLv3, dados ODbL v1.0.
+
+Toda leitura e publica, sem autenticacao e sem chave. Escrita (cadastrar/editar) exige conta e o header `X-API-Key`; contribuicoes de contas novas passam por moderacao ou votacao da comunidade.
+
+## API (leitura, sem autenticacao)
+
+- [Buscar produto por codigo de barras]({base}/products?identifier=7898242031967): `GET /products?identifier=<GTIN>`
+- [Buscar por NCM]({base}/products?ncm=23091000): `GET /products?ncm=<8 digitos>`
+- [Buscar por texto]({base}/products?q=special%20dog): `GET /products?q=<texto>` (paginado: `limit`, `offset`)
+- Produto por id: `GET /products/<id>`
+- [Classificacao NCM]({base}/ncm/23091000): `GET /ncm/<ncm>`
+- [Regras fiscais vigentes]({base}/fiscal-rules?ncm=23091000&uf=PR): `GET /fiscal-rules?ncm=<ncm>&uf=<UF>`
+- Aliquotas aplicaveis a um produto: `GET /products/<id>/fiscal?uf=<UF>`
+- [Base completa (SQLite)]({base}/export/sqlite): `GET /export/sqlite`
+
+## Documentacao
+
+- [Swagger / OpenAPI]({base}/docs): todos os endpoints, testaveis no navegador
+- [Sobre o projeto]({base}/about)
+- [Codigo-fonte](https://github.com/Thenorian/ProdBR)
+
+## Observacoes
+
+- Aliquotas sao de referencia; confirme com o contador antes de emitir nota.
+- Mesmo produto em embalagens diferentes = um produto com varios GTINs (campos `description`, `net_quantity`, `net_unit`, `units_per_pack` em cada identificador).
+"""
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml(request: Request):
+    from xml.sax.saxutils import escape
+
+    from app.database import PublicSession
+    from app.models_public import Product
+
+    base = _base_url(request)
+    urls = [f"{base}/", f"{base}/about", f"{base}/view/ncm", f"{base}/hall-da-fama", f"{base}/docs"]
+    db = PublicSession()
+    try:
+        # Limite do protocolo de sitemap: 50.000 URLs por arquivo.
+        ids = [row[0] for row in db.query(Product.id).limit(49_000).all()]
+    finally:
+        db.close()
+    urls += [f"{base}/view/products/{pid}" for pid in ids]
+    body = "".join(f"<url><loc>{escape(u)}</loc></url>" for u in urls)
+    xml = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{body}</urlset>'
+    return Response(content=xml, media_type="application/xml")
 
 
 @app.get("/license", include_in_schema=False)
