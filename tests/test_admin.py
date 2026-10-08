@@ -10,10 +10,12 @@ def admin_headers(client):
     return {"X-API-Key": raw_key}
 
 
-def test_list_users_requires_admin(client, newbie_headers, moderator_headers):
+def test_list_users_requires_moderator_and_hides_email_from_moderator(client, newbie_headers, moderator_headers):
     assert client.get("/admin/users", headers=newbie_headers).status_code == 403
-    assert client.get("/admin/users", headers=moderator_headers).status_code == 403
     assert client.get("/admin/users").status_code == 401
+    res = client.get("/admin/users", headers=moderator_headers)
+    assert res.status_code == 200
+    assert all("email" not in u for u in res.json())
 
 
 def test_list_users_includes_beginners_and_email(client, admin_headers, newbie_headers):
@@ -87,3 +89,27 @@ def test_ensure_column_adds_missing_column():
     ensure_column(engine, "users", "tier_override", "VARCHAR(20)")
     ensure_column(engine, "users", "tier_override", "VARCHAR(20)")  # idempotente
     assert "tier_override" in {c["name"] for c in inspect(engine).get_columns("users")}
+
+
+PRODUCT = {"name": "Produto do bot", "ncm": "23091000", "source": "Teste", "reason": "Teste"}
+
+
+def test_moderator_marks_auto_approve_and_bot_skips_queue(client, moderator_headers, newbie_headers):
+    assert client.post("/products", json=PRODUCT, headers=newbie_headers).status_code == 202
+    res = client.put("/admin/users/newbie/auto-approve", json={"auto_approve": True}, headers=moderator_headers)
+    assert res.status_code == 200, res.text
+    assert res.json()["auto_approve"] is True
+    assert client.post("/products", json={**PRODUCT, "name": "Outro"}, headers=newbie_headers).status_code == 201
+    client.put("/admin/users/newbie/auto-approve", json={"auto_approve": False}, headers=moderator_headers)
+    assert client.post("/products", json={**PRODUCT, "name": "Mais um"}, headers=newbie_headers).status_code == 202
+
+
+def test_member_cannot_mark_auto_approve(client, newbie_headers):
+    register(client, "outro")
+    res = client.put("/admin/users/outro/auto-approve", json={"auto_approve": True}, headers=newbie_headers)
+    assert res.status_code == 403
+
+
+def test_tier_above_beginner_auto_approves(client, admin_headers, newbie_headers):
+    client.put("/admin/users/newbie/tier", json={"tier": "Editor"}, headers=admin_headers)
+    assert client.post("/products", json=PRODUCT, headers=newbie_headers).status_code == 201

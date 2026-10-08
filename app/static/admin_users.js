@@ -1,6 +1,7 @@
 const usersEl = document.getElementById("users");
 const ROLE_LABELS = { member: "Membro", moderator: "Moderador", admin: "Administrador" };
 let tiers = [];
+let viewerIsAdmin = false;
 
 async function loadUsers() {
   if (!isLoggedIn()) {
@@ -9,13 +10,18 @@ async function loadUsers() {
   }
 
   try {
-    const [res, tiersRes] = await Promise.all([authFetch("/admin/users"), authFetch("/admin/tiers")]);
+    const [res, tiersRes, meRes] = await Promise.all([
+      authFetch("/admin/users"),
+      authFetch("/admin/tiers"),
+      fetch(`/users/${encodeURIComponent(getAuth().username)}`),
+    ]);
     if (res.status === 403) {
-      usersEl.innerHTML = `<p class="error">Acesso restrito a administradores.</p>`;
+      usersEl.innerHTML = `<p class="error">Acesso restrito a moderadores e administradores.</p>`;
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     tiers = tiersRes.ok ? await tiersRes.json() : [];
+    viewerIsAdmin = meRes.ok && (await meRes.json()).role === "admin";
     render(await res.json());
   } catch (err) {
     usersEl.innerHTML = `<p class="error">Erro ao carregar usuários: ${escapeHtml(err.message)}</p>`;
@@ -47,10 +53,15 @@ function userHtml(u, self) {
         ${self ? '<span class="badge">você</span>' : ""}
       </div>
       <div class="feed-meta">
-        ${escapeHtml(u.email)} · reputação ${u.reputation} · ${u.edit_count} edições
+        ${u.email ? `${escapeHtml(u.email)} · ` : ""}reputação ${u.reputation} · ${u.edit_count} edições
         (nível conquistado: ${escapeHtml(u.earned_tier)}) · desde ${timeAgo(u.created_at)}
       </div>
       <div class="mod-actions admin-user-actions">
+        <label class="auto-approve-label">
+          <input type="checkbox" class="auto-approve-check" ${u.auto_approve ? "checked" : ""} />
+          Aprovar automaticamente
+        </label>
+        ${viewerIsAdmin ? `
         <label>Papel
           <select class="role-select" ${self ? 'disabled title="Você não pode mudar o seu próprio papel"' : ""}>${roleOptions}</select>
         </label>
@@ -58,15 +69,16 @@ function userHtml(u, self) {
         <label>Nível concedido
           <select class="tier-select">${tierOptions}</select>
         </label>
-        <button class="btn btn-sm" data-action="tier">Salvar nível</button>
+        <button class="btn btn-sm" data-action="tier">Salvar nível</button>` : ""}
       </div>
       <div class="form-message" hidden></div>
     </div>`;
 }
 
 function bindItem(el) {
-  el.querySelector('[data-action="role"]').addEventListener("click", () => save(el, "role"));
-  el.querySelector('[data-action="tier"]').addEventListener("click", () => save(el, "tier"));
+  el.querySelector('[data-action="role"]')?.addEventListener("click", () => save(el, "role"));
+  el.querySelector('[data-action="tier"]')?.addEventListener("click", () => save(el, "tier"));
+  el.querySelector(".auto-approve-check").addEventListener("change", () => save(el, "auto-approve"));
 }
 
 async function save(el, kind) {
@@ -75,7 +87,9 @@ async function save(el, kind) {
   const body =
     kind === "role"
       ? { role: el.querySelector(".role-select").value }
-      : { tier: el.querySelector(".tier-select").value || null };
+      : kind === "tier"
+        ? { tier: el.querySelector(".tier-select").value || null }
+        : { auto_approve: el.querySelector(".auto-approve-check").checked };
   messageEl.hidden = false;
   try {
     const res = await authFetch(`/admin/users/${encodeURIComponent(username)}/${kind}`, {
@@ -98,7 +112,11 @@ async function save(el, kind) {
     msg.textContent =
       kind === "role"
         ? `Papel de ${username} agora é ${ROLE_LABELS[data.role]}.`
-        : `Nível de ${username} agora é ${data.tier_name}.`;
+        : kind === "tier"
+          ? `Nível de ${username} agora é ${data.tier_name}.`
+          : data.auto_approve
+            ? `As contribuições de ${username} agora entram direto, sem fila.`
+            : `As contribuições de ${username} voltam a seguir a regra normal.`;
   } catch (err) {
     messageEl.className = "form-message error";
     messageEl.textContent = err.message;

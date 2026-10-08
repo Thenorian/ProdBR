@@ -188,7 +188,9 @@ function initNav() {
       .then((profile) => {
         if (!profile) return;
         usernameEl.innerHTML = `${avatarHtml(username)} ${escapeHtml(username)} ${tierBadgeHtml(profile)}`;
-        if (profile.role === "admin") {
+        // Moderador também entra em Usuários (só o checkbox "Aprovar
+        // automaticamente"); papel e nível continuam só pro admin.
+        if (profile.role === "admin" || profile.role === "moderator") {
           const adminLink = document.getElementById("nav-admin");
           if (adminLink) adminLink.hidden = false;
         }

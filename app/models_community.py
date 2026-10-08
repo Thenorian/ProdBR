@@ -33,6 +33,10 @@ class User(CommunityBase):
     # (ver reputation_tiers.effective_tier). So selo publico - quem decide
     # aprovacao automatica e `role`/`reputation`.
     tier_override: Mapped[str | None] = mapped_column(String(20), nullable=True, default=None)
+    # "Aprovar automaticamente": marcado por um moderador/admin pra contas de
+    # confianca (bots da Thenorian) - contribuicao aplicada direto, sem
+    # precisar de papel de moderador nem de nivel.
+    auto_approve: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
