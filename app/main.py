@@ -18,6 +18,14 @@ PROJECT_ROOT = APP_DIR.parent
 PublicBase.metadata.create_all(bind=public_engine)
 CommunityBase.metadata.create_all(bind=community_engine)
 ensure_column(community_engine, "users", "tier_override", "VARCHAR(20)")
+ensure_column(community_engine, "users", "auto_approve", "BOOLEAN NOT NULL DEFAULT 0")
+for _col, _ddl in (
+    ("description", "VARCHAR(120)"),
+    ("net_quantity", "FLOAT"),
+    ("net_unit", "VARCHAR(5)"),
+    ("units_per_pack", "INTEGER"),
+):
+    ensure_column(public_engine, "product_identifiers", _col, _ddl)
 
 app = FastAPI(
     title="ProdBR API",
@@ -119,6 +127,11 @@ def ncm_detail_page(request: Request, code: str):
 @app.get("/about", response_class=HTMLResponse, include_in_schema=False)
 def about_page(request: Request):
     return templates.TemplateResponse("about.html", {"request": request})
+
+
+@app.get("/hall-da-fama", response_class=HTMLResponse, include_in_schema=False)
+def hall_of_fame_page(request: Request):
+    return templates.TemplateResponse("hall_of_fame.html", {"request": request})
 
 
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)

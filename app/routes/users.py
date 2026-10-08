@@ -37,6 +37,26 @@ def list_contributors(
     return [user_public(u) for u in users]
 
 
+@router.get("/hall-of-fame")
+@limiter.limit(settings.rate_limit_read)
+def hall_of_fame(
+    request: Request,
+    limit: int = 50,
+    db_community: DbSession = Depends(get_community_db),
+):
+    """Hall da Fama: quem mais contribuiu (edicoes aplicadas), com posicao.
+    Diferente de /users, inclui iniciantes - basta ter 1 edicao aceita."""
+    limit = max(1, min(limit, 100))
+    users = (
+        db_community.query(User)
+        .filter(User.edit_count >= 1)
+        .order_by(User.edit_count.desc(), User.created_at)
+        .limit(limit)
+        .all()
+    )
+    return [{"rank": i, **user_public(u).model_dump()} for i, u in enumerate(users, start=1)]
+
+
 @router.get("/users/{username}", response_model=UserPublic)
 @limiter.limit(settings.rate_limit_read)
 def get_user_profile(

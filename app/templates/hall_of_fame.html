@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Hall da Fama — ProdBR{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>Hall da Fama</h1>
+    <p>Quem mais contribuiu com o ProdBR. Conta cada edição aceita na base: produtos cadastrados, códigos de barras, correções e regras fiscais.</p>
+  </div>
+  <div id="podium" class="hof-podium"></div>
+  <table class="fiscal-table hof-table">
+    <thead><tr><th>#</th><th>Contribuidor</th><th>Nível</th><th>Edições</th><th>Desde</th></tr></thead>
+    <tbody id="hof-rows"><tr><td colspan="5" class="empty">Carregando...</td></tr></tbody>
+  </table>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/hall_of_fame.js?v={{ static_v }}"></script>
+{% endblock %}
