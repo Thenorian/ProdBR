@@ -29,9 +29,10 @@ for _col, _ddl in (
     ensure_column(public_engine, "product_identifiers", _col, _ddl)
 
 def _start_ncm_auto_update():
-    """Tabela NCM oficial sempre em dia sem cron: thread em segundo plano
-    que atualiza 1x por dia (a primeira 1 min depois de subir, pra nao
-    atrasar o boot). Falha de rede so loga - tenta de novo no dia seguinte."""
+    """Tabela NCM oficial + IPI (TIPI) e II (TEC) sempre em dia sem cron:
+    thread em segundo plano que atualiza 1x por dia (a primeira 1 min
+    depois de subir, pra nao atrasar o boot). Falha de rede so loga -
+    tenta de novo no dia seguinte."""
     if not settings.ncm_auto_update:
         return
     import logging
@@ -40,6 +41,7 @@ def _start_ncm_auto_update():
 
     from app.database import PublicSession
     from app.ncm_official import update_from_siscomex
+    from app.tax_official import update_from_official
 
     log = logging.getLogger("prodbr.ncm")
 
@@ -50,6 +52,10 @@ def _start_ncm_auto_update():
                 log.warning("NCM oficial atualizado: %s", update_from_siscomex(PublicSession))
             except Exception as exc:  # noqa: BLE001 - nunca derruba o app
                 log.warning("Falha ao atualizar a tabela NCM oficial: %s", exc)
+            try:
+                log.warning("IPI/II oficiais atualizados: %s", update_from_official(PublicSession))
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Falha ao atualizar IPI (TIPI) / II (TEC): %s", exc)
             time.sleep(24 * 3600)
 
     threading.Thread(target=loop, name="ncm-auto-update", daemon=True).start()

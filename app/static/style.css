@@ -1219,3 +1219,11 @@ h1, h2, .page-header h1, .article-header h1, .form-card h1 {
   .mainpage-grid { grid-template-columns: 1fr; }
   .site-footer { padding-left: 1rem; }
 }
+
+/* Resumo de tributos na ficha do NCM */
+.tax-box { border: 1px solid var(--border); background: var(--page-bg); padding: .75rem 1rem; margin-bottom: 1rem; }
+.tax-box h4 { margin: .25rem 0 .5rem; }
+.tax-box h4 + .tax-depends { margin-top: 0; }
+.tax-summary { width: auto; min-width: 16rem; }
+.tax-summary th { text-align: left; padding-right: 1.5rem; }
+.fiscal-source td { font-size: .8rem; color: var(--muted); border-top: none; padding-top: 0; }

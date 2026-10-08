@@ -177,6 +177,27 @@ plano (`NCM_AUTO_UPDATE=true`, padrão) - nada de cron. Pra carregar na hora:
 `python -m scripts.import_ncm`. Só cria e atualiza; NCM que sai da tabela não
 é apagado (pode haver produto usando).
 
+## IPI e II oficiais (automático)
+
+Junto com a tabela NCM, o app baixa as planilhas oficiais e grava uma regra
+fiscal nacional por NCM (`source` começa com `Oficial:`):
+
+- **IPI** — TIPI da Receita Federal. Alíquota do NCM, `NT` (não tributado)
+  nas observações e os Ex-tarifários ("Ex 01 (Para cães e gatos): 6,5%").
+- **II** — TEC do Mercosul (MDIC/Gecex), com as exceções que o Brasil aplica
+  (Anexo II). Quotas e reduções temporárias condicionais ficam de fora.
+
+Alíquota que muda encerra a regra antiga e cria outra - o histórico fica em
+`/fiscal-rules/history`. Pra carregar na hora: `python -m scripts.import_tributos`
+(ou `--tipi arquivo.xlsx --tec arquivo.xlsx` com as planilhas já baixadas).
+Sem dependência extra: o xlsx é lido com a biblioteca padrão do Python.
+
+O que **não** sai do NCM sozinho e por isso é regra por UF da comunidade:
+ICMS/FCP/ICMS-ST (cada estado), CST/CSOSN (regime da empresa + operação) e
+PIS/COFINS (regime cumulativo, não cumulativo ou Simples). A consulta
+`/fiscal-rules?ncm=...&uf=SP` soma campo a campo: ICMS da regra de SP + IPI/II
+da regra nacional oficial.
+
 ## Robôs, buscadores e IAs
 
 A base é pública: `/robots.txt` libera todos os robôs, inclusive os de IA

@@ -107,6 +107,43 @@ function renderNotFound() {
   }
 }
 
+function pct(value) {
+  return value == null ? "—" : `${String(value).replace(".", ",")}%`;
+}
+
+// Resumo dos tributos: o que sai direto do NCM (IPI/II oficiais, da TIPI e
+// da TEC, atualizados sozinhos) e o que depende da empresa/UF/operacao -
+// por isso nao existe "o ICMS do NCM" nem "o CST do NCM".
+function taxSummary(rules) {
+  const today = new Date().toISOString().slice(0, 10);
+  const official = (rules || []).find(
+    (r) => r.source && r.source.startsWith("Oficial:") && !r.uf && (!r.valid_until || r.valid_until >= today)
+  );
+  const federal = official
+    ? `
+      <table class="fiscal-table tax-summary">
+        <tbody>
+          <tr><th>IPI${helpIcon("ipi")}</th><td>${official.ipi_rate == null && official.notes && official.notes.startsWith("IPI: NT") ? "NT (não tributado)" : pct(official.ipi_rate)}</td></tr>
+          <tr><th>II${helpIcon("ii")}</th><td>${pct(official.ii_rate)} <span class="form-hint">(só na importação)</span></td></tr>
+        </tbody>
+      </table>
+      ${official.notes ? `<p class="form-hint">${escapeHtml(official.notes)}</p>` : ""}
+      <p class="form-hint">Fonte: ${escapeHtml(official.source)} · atualizado automaticamente todo dia.</p>`
+    : '<p class="empty">Ainda sem IPI/II oficial carregado para este NCM.</p>';
+  return `
+    <div class="tax-box">
+      <h4>Federais — oficial, direto do NCM</h4>
+      ${federal}
+      <h4>Dependem da empresa, do estado e da operação</h4>
+      <ul class="about-list tax-depends">
+        <li><b>ICMS / FCP</b> — alíquota de cada estado (e às vezes redução de base, isenção ou ICMS-ST pelo CEST). Veja/cadastre por UF nas regras abaixo.</li>
+        <li><b>CST / CSOSN</b> — não vêm do NCM: dependem do regime da empresa (Simples Nacional usa CSOSN, ex. 102 ou 500 com ST; regime normal usa CST, ex. 00, 20, 60) e da operação.</li>
+        <li><b>PIS / COFINS</b> — dependem do regime: cumulativo (0,65% + 3%), não cumulativo (1,65% + 7,6%) ou Simples (dentro do DAS). Alguns NCMs são monofásicos ou alíquota zero — registre nas observações da regra.</li>
+        <li><b>CBS / IBS</b> — reforma tributária. Em 2026 é ano de teste (CBS 0,9% + IBS 0,1%, destacados na nota e compensáveis); cobrança efetiva começa em 2027.</li>
+      </ul>
+    </div>`;
+}
+
 function fiscalRulesTable(rules) {
   if (!rules || rules.length === 0) {
     return '<p class="empty">Nenhuma regra fiscal cadastrada para este NCM ainda.</p>';
@@ -132,7 +169,8 @@ function fiscalRulesTable(rules) {
           <td>${f.cbs_rate ?? "—"}</td>
           <td>${f.ibs_rate ?? "—"}</td>
           <td>${f.valid_until ? `${f.valid_from} a ${f.valid_until}` : `desde ${f.valid_from}`}</td>
-        </tr>`
+        </tr>
+        <tr class="fiscal-source"><td colspan="10">${f.notes ? `${escapeHtml(f.notes)} · ` : ""}Fonte: ${escapeHtml(f.source)}</td></tr>`
         )
         .join("");
       return `
@@ -220,6 +258,9 @@ function render(ncm, revisions) {
           <div class="form-message" id="edit-message" hidden></div>
         </div>
       </div>
+
+      <h3 class="section-title">Tributos</h3>
+      ${taxSummary(ncm.fiscal_rules)}
 
       <h3 class="section-title">Regras fiscais${helpIcon("uf")}</h3>
       <div id="fiscal-table-wrap">${fiscalRulesTable(ncm.fiscal_rules)}</div>
