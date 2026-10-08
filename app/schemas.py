@@ -42,6 +42,10 @@ class IdentifierOut(BaseModel):
     id: int
     type: str
     value: str
+    description: str | None = None
+    net_quantity: float | None = None
+    net_unit: str | None = None
+    units_per_pack: int | None = None
 
 
 class ProductOut(ProductBase):
@@ -69,12 +73,20 @@ class IdentifierCreate(BaseModel):
     product_id: str
     type: str = Field(..., description=f"Um de: {', '.join(IDENTIFIER_TYPES)}")
     value: str = Field(..., min_length=1, max_length=64)
+    description: str | None = Field(None, max_length=120, description="Embalagem como o fabricante escreve, ex: 'Pacote 15 kg'. Se os campos abaixo vierem vazios, sao lidos daqui quando da pra ter certeza.")
+    net_quantity: float | None = Field(None, gt=0)
+    net_unit: str | None = Field(None, description="g, kg, mg, ml, l ou un")
+    units_per_pack: int | None = Field(None, ge=1)
     reason: str = REASON
 
 
 class IdentifierUpdate(BaseModel):
     type: str | None = Field(None, description=f"Um de: {', '.join(IDENTIFIER_TYPES)}")
     value: str | None = Field(None, min_length=1, max_length=64)
+    description: str | None = Field(None, max_length=120, description="Embalagem como o fabricante escreve, ex: 'Pacote 15 kg'. Se os campos abaixo vierem vazios, sao lidos daqui quando da pra ter certeza.")
+    net_quantity: float | None = Field(None, gt=0)
+    net_unit: str | None = Field(None, description="g, kg, mg, ml, l ou un")
+    units_per_pack: int | None = Field(None, ge=1)
     reason: str = REASON
 
 

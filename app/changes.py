@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
 from app.config import settings
+from app.packaging import PACKAGE_FIELDS
 from app.models_community import PendingChange, User
 from app.models_public import Category, FiscalRule, NcmClassification, Product, ProductIdentifier, Revision
 
@@ -92,7 +93,18 @@ def _serialize(value):
 
 
 def can_auto_approve(user: User) -> bool:
-    return user.role in ("moderator", "admin") or user.reputation >= settings.auto_approve_reputation
+    """Contribuicao aplicada direto (sem fila) quando o usuario e:
+    moderador/admin; marcado com "Aprovar automaticamente" (bots de
+    confianca, ex: os da Thenorian); tem reputacao suficiente; ou esta num
+    nivel acima de Iniciante - conquistado ou concedido por um admin."""
+    from app.reputation_tiers import TIERS, effective_tier
+
+    return (
+        user.role in ("moderator", "admin")
+        or bool(getattr(user, "auto_approve", False))
+        or user.reputation >= settings.auto_approve_reputation
+        or effective_tier(user).min_edits > TIERS[0].min_edits
+    )
 
 
 def apply_entity_change(
@@ -179,7 +191,10 @@ def apply_entity_change(
 
 def apply_identifier_create(db_public: DbSession, payload: dict, contributor: str | None, reason: str):
     identifier = ProductIdentifier(
-        product_id=payload["product_id"], type=payload["type"], value=payload["value"]
+        product_id=payload["product_id"],
+        type=payload["type"],
+        value=payload["value"],
+        **{k: payload.get(k) for k in PACKAGE_FIELDS},
     )
     db_public.add(identifier)
     try:
@@ -199,6 +214,20 @@ def apply_identifier_create(db_public: DbSession, payload: dict, contributor: st
             reason=reason,
         )
     )
+    for field in PACKAGE_FIELDS:
+        if payload.get(field) is not None:
+            db_public.add(
+                Revision(
+                    entity_type="identifier",
+                    entity_id=str(identifier.id),
+                    contributor=contributor,
+                    action="create",
+                    field=field,
+                    old_value=None,
+                    new_value=json.dumps(payload[field]),
+                    reason=reason,
+                )
+            )
     db_public.commit()
     db_public.refresh(identifier)
     return identifier
@@ -208,7 +237,7 @@ def apply_identifier_update(db_public: DbSession, identifier_id: int, payload: d
     identifier = db_public.get(ProductIdentifier, identifier_id)
     if identifier is None:
         raise ValueError(f"Identificador {identifier_id} nao encontrado.")
-    for field in ("type", "value"):
+    for field in ("type", "value", *PACKAGE_FIELDS):
         if field not in payload or payload[field] is None:
             continue
         new_value = payload[field]

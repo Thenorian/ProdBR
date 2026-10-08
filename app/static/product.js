@@ -47,12 +47,23 @@ function field(label, name, value, helpKey, extraAttrs = "", full = false) {
     </div>`;
 }
 
+// "15 kg", "6 × 350 ml" - campos padronizados lidos da descrição da embalagem.
+function packageSummary(i) {
+  if (i.net_quantity == null || !i.net_unit) return "";
+  const qty = Number(i.net_quantity).toLocaleString("pt-BR");
+  if (i.net_unit === "un") return `${qty} un`;
+  const unit = i.net_unit === "l" ? "L" : i.net_unit;
+  return i.units_per_pack ? `${i.units_per_pack} × ${qty} ${unit}` : `${qty} ${unit}`;
+}
+
 function identifierRow(i) {
   const typeLabel = IDENTIFIER_TYPES.find((t) => t[0] === i.type)?.[1] || i.type;
+  const summary = packageSummary(i);
   return `
-    <tr data-id-row="${i.id}" data-type="${escapeHtml(i.type)}" data-value="${escapeHtml(i.value)}">
+    <tr data-id-row="${i.id}" data-type="${escapeHtml(i.type)}" data-value="${escapeHtml(i.value)}" data-description="${escapeHtml(i.description ?? "")}">
       <td>${escapeHtml(typeLabel)}</td>
       <td><code>${escapeHtml(i.value)}</code></td>
+      <td>${escapeHtml(i.description ?? "")}${summary && summary !== i.description ? ` <span class="form-hint" style="display:inline;">(${escapeHtml(summary)})</span>` : ""}</td>
       <td class="edit-only id-row-actions">
         <button type="button" class="btn-link" data-edit-id="${i.id}">editar</button>
         <button type="button" class="btn-link remove-id-btn" data-remove-id="${i.id}">remover</button>
@@ -129,14 +140,15 @@ function render(product, fiscal, revisions) {
 
             <h3 class="section-title">Identificadores${helpIcon("gtin")}</h3>
             <table class="id-table">
-              <thead><tr><th>Tipo</th><th>Código</th><th class="edit-only"></th></tr></thead>
+              <thead><tr><th>Tipo</th><th>Código</th><th>Embalagem</th><th class="edit-only"></th></tr></thead>
               <tbody id="id-rows">
-                ${product.identifiers.length ? product.identifiers.map(identifierRow).join("") : '<tr><td colspan="3" class="view-only">nenhum cadastrado</td></tr>'}
+                ${product.identifiers.length ? product.identifiers.map(identifierRow).join("") : '<tr><td colspan="4" class="view-only">nenhum cadastrado</td></tr>'}
               </tbody>
             </table>
             <div class="add-identifier-row edit-only">
               <select id="new-id-type">${IDENTIFIER_TYPES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>
               <input id="new-id-value" placeholder="Código" />
+              <input id="new-id-description" placeholder="Embalagem (ex: Pacote 15 kg)" maxlength="120" />
               <button type="button" id="add-identifier-btn" class="btn btn-sm btn-outline">+ Adicionar</button>
             </div>
 
@@ -254,7 +266,8 @@ function wireEditing(product) {
       showMessage(messageEl, "error", "Informe o código do identificador.");
       return;
     }
-    await submitContribution("/identifiers", "POST", { product_id: productId, type, value, reason }, messageEl);
+    const description = document.getElementById("new-id-description").value.trim() || null;
+    await submitContribution("/identifiers", "POST", { product_id: productId, type, value, description, reason }, messageEl);
   });
 
   root.querySelectorAll("[data-remove-id]").forEach((btn) => {
@@ -269,6 +282,7 @@ function wireEditing(product) {
     const idId = btn.dataset.editId;
     const currentType = row.dataset.type;
     const currentValue = row.dataset.value;
+    const currentDescription = row.dataset.description;
     row.innerHTML = `
       <td>
         <select class="edit-id-type">
@@ -276,6 +290,7 @@ function wireEditing(product) {
         </select>
       </td>
       <td><input class="edit-id-value" value="${escapeHtml(currentValue)}" /></td>
+      <td><input class="edit-id-description" value="${escapeHtml(currentDescription)}" placeholder="Embalagem" maxlength="120" /></td>
       <td class="edit-only id-row-actions">
         <div class="inline-remove-form">
           <input type="text" placeholder="motivo" class="edit-id-reason-input" />
@@ -292,7 +307,10 @@ function wireEditing(product) {
         showMessage(messageEl, "error", "Informe o código do identificador.");
         return;
       }
-      await submitContribution(`/identifiers/${idId}`, "PUT", { type, value, reason }, messageEl);
+      const description = row.querySelector(".edit-id-description").value.trim();
+      const body = { type, value, reason };
+      if (description) body.description = description;
+      await submitContribution(`/identifiers/${idId}`, "PUT", body, messageEl);
     });
   }
 

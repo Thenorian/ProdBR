@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import PublicBase
@@ -125,6 +125,14 @@ class ProductIdentifier(PublicBase):
     product_id: Mapped[str] = mapped_column(ForeignKey("products.id"), index=True)
     type: Mapped[str] = mapped_column(String(20))
     value: Mapped[str] = mapped_column(String(64), index=True)
+    # Embalagem deste codigo (um produto = mesmos dados fiscais; cada tamanho
+    # tem seu GTIN). `description` e o texto como o fabricante escreve
+    # ("Pacote 15 kg", "10,1kg") e nunca e alterado; os campos padronizados
+    # sao lidos dele por app/packaging.py so quando da pra ter certeza.
+    description: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    net_quantity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    net_unit: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    units_per_pack: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     product: Mapped[Product] = relationship(back_populates="identifiers")
 

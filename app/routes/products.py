@@ -8,6 +8,7 @@ from app.config import settings
 from app.database import get_community_db, get_public_db
 from app.models_community import User
 from app.models_public import Category, Product, ProductIdentifier
+from app.packaging import package_fields
 from app.rate_limit import limiter
 from app.routes.common import apply_or_400, get_or_404, write_response
 from app.schemas import (
@@ -23,6 +24,14 @@ from app.schemas import (
 
 router = APIRouter(tags=["products"])
 
+
+
+
+def _package_or_400(given: dict) -> dict:
+    try:
+        return package_fields(given)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @router.get("/products", response_model=ProductList)
 @limiter.limit(settings.rate_limit_read)
@@ -142,6 +151,7 @@ def create_identifier(
 ):
     get_or_404(db_public, Product, payload.product_id, "Produto")
     data = {"product_id": payload.product_id, "type": payload.type, "value": payload.value.strip()}
+    data.update(_package_or_400(payload.model_dump()))
     result = apply_or_400(
         propose_or_apply, db_public, db_community, user, "identifier", None, data, payload.reason
     )
@@ -160,6 +170,7 @@ def update_identifier(
 ):
     get_or_404(db_public, ProductIdentifier, identifier_id, "Identificador")
     data = payload.model_dump(mode="json", exclude={"reason"}, exclude_unset=True)
+    data.update(_package_or_400(data))
     if not data:
         # payload vazio e reservado para o "apagar" do dispatch_apply -
         # ver app/changes.py::dispatch_apply.
