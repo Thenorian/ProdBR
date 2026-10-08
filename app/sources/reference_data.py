@@ -1,14 +1,12 @@
-"""Dados de referencia que ja vem de fabrica: paises do Mercosul, suas
-UFs/provincias/departamentos (codigos ISO 3166-2) e os tributos de cada
-um, com nome traduzido em pt/es/en.
+"""Dados de fábrica: países do Mercosul, as subdivisões de cada um (código
+ISO 3166-2) e os tributos, com nome traduzido em pt/es/en.
 
-Roda sozinho ao subir o app (`ensure_reference_data`), entao uma
-instalacao nova ja nasce pronta pra consulta - sem script nenhum. So
-INSERE o que falta: o que o admin editou depois (nome, traducao,
-aliquota geral) nunca e sobrescrito.
+Roda sozinho ao subir o app, então uma instalação nova já nasce pronta
+pra consulta. Só INSERE o que falta: o que o admin editou depois (nome,
+tradução, alíquota geral) nunca é sobrescrito.
 """
 
-from app.models_public import Country, State, TaxType
+from app.models import Country, State, TaxType
 
 COUNTRIES = [
     # id, nome, idioma, como o pais chama a subdivisao
@@ -56,37 +54,37 @@ STATES = {
     ],
 }
 
-# Tributos de fabrica. Os do Brasil apontam pras colunas que FiscalRule ja
-# tinha (`column`); os demais guardam a aliquota em FiscalRule.rates.
+# Tributos de fábrica. A alíquota de cada um por NCM fica em fiscal_rule_rates;
+# `default_rate` é a alíquota geral do país (usada quando o NCM não tem regra).
 TAX_TYPES = {
     "BR": [
-        dict(code="ICMS", level="state", column="icms_rate",
+        dict(code="ICMS", level="state",
              name="Imposto sobre Circulação de Mercadorias e Serviços",
              translations={"es": "Impuesto sobre la Circulación de Mercaderías y Servicios",
                            "en": "Tax on the Circulation of Goods and Services (state VAT)"}),
-        dict(code="FCP", level="state", column="fcp_rate",
+        dict(code="FCP", level="state",
              name="Fundo de Combate à Pobreza",
              translations={"es": "Fondo de Combate a la Pobreza", "en": "Poverty Combat Fund (ICMS surcharge)"}),
-        dict(code="ICMS_ST_MVA", level="state", column="icms_st_mva_rate",
+        dict(code="ICMS_ST_MVA", level="state",
              name="Margem de Valor Agregado do ICMS-ST",
              translations={"es": "Margen de Valor Agregado del ICMS-ST", "en": "Added value margin for ICMS tax substitution"}),
-        dict(code="IPI", level="national", column="ipi_rate",
+        dict(code="IPI", level="national",
              name="Imposto sobre Produtos Industrializados",
              translations={"es": "Impuesto sobre Productos Industrializados", "en": "Tax on Industrialized Products (federal excise)"}),
-        dict(code="II", level="national", column="ii_rate",
+        dict(code="II", level="national",
              name="Imposto de Importação",
              translations={"es": "Impuesto de Importación", "en": "Import duty"}),
-        dict(code="PIS", level="national", column="pis_rate",
+        dict(code="PIS", level="national",
              name="Contribuição para o PIS/Pasep",
              translations={"es": "Contribución al PIS/Pasep", "en": "PIS/Pasep social contribution"}),
-        dict(code="COFINS", level="national", column="cofins_rate",
+        dict(code="COFINS", level="national",
              name="Contribuição para o Financiamento da Seguridade Social",
              translations={"es": "Contribución para el Financiamiento de la Seguridad Social",
                            "en": "Social Security Financing Contribution"}),
-        dict(code="CBS", level="national", column="cbs_rate",
+        dict(code="CBS", level="national",
              name="Contribuição sobre Bens e Serviços",
              translations={"es": "Contribución sobre Bienes y Servicios", "en": "Goods and Services Contribution (federal VAT)"}),
-        dict(code="IBS", level="state", column="ibs_rate",
+        dict(code="IBS", level="state",
              name="Imposto sobre Bens e Serviços",
              translations={"es": "Impuesto sobre Bienes y Servicios", "en": "Goods and Services Tax (subnational VAT)"}),
     ],
@@ -134,20 +132,12 @@ TAX_TYPES = {
 
 
 def ensure_reference_data(db) -> dict:
-    """Insere o que falta (paises, UFs, tributos). Idempotente; nunca
-    altera o que ja existe - exceto preencher idioma/rotulo de pais
-    criado antes dessas colunas existirem."""
+    """Insere o que falta (países, subdivisões, tributos). Idempotente."""
     stats = {"countries": 0, "states": 0, "tax_types": 0}
     for country_id, name, language, label in COUNTRIES:
-        country = db.get(Country, country_id)
-        if country is None:
+        if db.get(Country, country_id) is None:
             db.add(Country(id=country_id, name=name, language=language, subdivision_label=label))
             stats["countries"] += 1
-        else:
-            if not country.language:
-                country.language = language
-            if not country.subdivision_label:
-                country.subdivision_label = label
     db.flush()
 
     for country_id, states in STATES.items():

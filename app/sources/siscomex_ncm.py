@@ -11,7 +11,7 @@ hierarquia inteira: "Preparacoes do tipo utilizado na alimentacao de
 animais > Outras > Preparacoes destinadas a fornecer...".
 
 Usado pelo comando `python -m scripts.import_ncm` e pela atualizacao
-automatica diaria (ver app/main.py). Nunca apaga NCM que saiu da tabela -
+automática diária (ver app/jobs.py). Nunca apaga NCM que saiu da tabela -
 produto pode estar usando - so cria e atualiza.
 """
 
@@ -19,6 +19,8 @@ import json
 import re
 import urllib.request
 from datetime import date, datetime
+
+from app.models import NcmClassification
 
 SISCOMEX_URL = "https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json?perfil=PUBLICO"
 USER_AGENT = "ProdBR/1.0 (+https://github.com/Thenorian/ProdBR)"
@@ -47,7 +49,7 @@ def _vigente(item: dict, today: date) -> bool:
 
 
 def parse(data: dict, today: date | None = None) -> list[dict]:
-    """[{ncm, description, chapter}] dos codigos de 8 digitos vigentes."""
+    """[{ncm, description}] dos códigos de 8 dígitos vigentes."""
     today = today or date.today()
     by_digits = {}
     for item in data.get("Nomenclaturas", []):
@@ -67,7 +69,7 @@ def parse(data: dict, today: date | None = None) -> list[dict]:
                 parts.append(desc)
         if leaf not in parts:
             parts.append(leaf)
-        result.append({"ncm": digits, "description": " > ".join(parts)[:500], "chapter": digits[:2]})
+        result.append({"ncm": digits, "description": " > ".join(parts)[:500]})
     return result
 
 
@@ -77,10 +79,8 @@ def source_label(data: dict) -> str:
 
 
 def apply(db, items: list[dict], source: str) -> dict:
-    """Cria/atualiza ncm_classifications. Nao toca em categoria nem apaga
-    nada. Devolve contagem de criados/atualizados/iguais."""
-    from app.models_public import NcmClassification
-
+    """Cria/atualiza ncm_classifications. Nunca apaga. Devolve a contagem
+    de criados/atualizados/iguais."""
     existing = {row.ncm: row for row in db.query(NcmClassification).all()}
     stats = {"criados": 0, "atualizados": 0, "iguais": 0}
     for item in items:
@@ -88,8 +88,8 @@ def apply(db, items: list[dict], source: str) -> dict:
         if row is None:
             db.add(NcmClassification(source=source, **item))
             stats["criados"] += 1
-        elif row.description != item["description"] or row.chapter != item["chapter"] or row.source != source:
-            row.description, row.chapter, row.source = item["description"], item["chapter"], source
+        elif row.description != item["description"] or row.source != source:
+            row.description, row.source = item["description"], source
             stats["atualizados"] += 1
         else:
             stats["iguais"] += 1

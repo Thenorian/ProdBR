@@ -1,6 +1,16 @@
+"""Conexão com os dois bancos do ProdBR.
+
+- **Base pública** (`PUBLIC_DATABASE_URL`): produtos, NCM, regras fiscais e
+  histórico. É o arquivo que qualquer pessoa baixa em /export/sqlite e
+  leva pro próprio sistema - a estrutura dela está documentada em
+  app/models/public.py e na página /estrutura.
+- **Base de comunidade** (`COMMUNITY_DATABASE_URL`): usuários, chaves,
+  sessões e fila de moderação. Fica só no servidor, nunca é distribuída.
+"""
+
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.config import settings
@@ -9,17 +19,25 @@ Path("./data").mkdir(exist_ok=True)
 
 
 def _make_engine(url: str):
-    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    return create_engine(url, connect_args=connect_args)
+    if not url.startswith("sqlite"):
+        return create_engine(url)
+
+    engine = create_engine(url, connect_args={"check_same_thread": False})
+
+    # SQLite só confere chave estrangeira se pedir, conexão por conexão.
+    @event.listens_for(engine, "connect")
+    def _enable_foreign_keys(dbapi_connection, _record):
+        dbapi_connection.execute("PRAGMA foreign_keys = ON")
+
+    return engine
 
 
 class PublicBase(DeclarativeBase):
-    """Metadata da base publica/distribuivel (produtos, fiscal, revisoes)."""
+    """Tabelas da base pública (a que é distribuída)."""
 
 
 class CommunityBase(DeclarativeBase):
-    """Metadata da base de comunidade (usuarios, chaves, moderacao) - fica
-    so no servidor, nunca e exportada junto com a base publica."""
+    """Tabelas da base de comunidade (só no servidor)."""
 
 
 public_engine = _make_engine(settings.public_database_url)
@@ -45,25 +63,14 @@ def get_community_db():
         db.close()
 
 
-def public_db_path() -> str:
-    """Caminho de arquivo do banco publico, para as rotas de exportacao
-    (/export/*). So funciona quando PUBLIC_DATABASE_URL e sqlite."""
+def sqlite_path(url: str) -> str:
+    """Caminho do arquivo de um banco SQLite (`sqlite:///./data/x.sqlite3`
+    -> `./data/x.sqlite3`). Exportação e migração só funcionam com SQLite."""
     prefix = "sqlite:///"
-    if not settings.public_database_url.startswith(prefix):
-        raise RuntimeError("Exportacao de arquivo so e suportada com PUBLIC_DATABASE_URL sqlite.")
-    return settings.public_database_url[len(prefix):]
+    if not url.startswith(prefix):
+        raise RuntimeError("Essa operação só é suportada com banco SQLite.")
+    return url[len(prefix):]
 
 
-def ensure_column(engine, table: str, column: str, ddl_type: str) -> None:
-    """Adiciona uma coluna nova numa tabela que ja existe. create_all so
-    cria tabelas que faltam, nunca colunas - sem isso, uma coluna nova no
-    modelo quebraria o banco ja em producao (SQLite)."""
-    from sqlalchemy import inspect, text
-
-    insp = inspect(engine)
-    if table not in insp.get_table_names():
-        return
-    if column in {c["name"] for c in insp.get_columns(table)}:
-        return
-    with engine.begin() as conn:
-        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
+def public_db_path() -> str:
+    return sqlite_path(settings.public_database_url)
