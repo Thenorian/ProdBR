@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from app.config import settings
 from app.database import CommunityBase, PublicBase, community_engine, ensure_column, public_engine
 from app.rate_limit import limiter
-from app.routes import admin, auth, export, fiscal, geo, moderation, ncm, products, revisions, stats, users
+from app.routes import admin, admin_taxes, auth, export, fiscal, geo, lookup, moderation, ncm, products, revisions, stats, users
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
@@ -27,6 +27,26 @@ for _col, _ddl in (
     ("units_per_pack", "INTEGER"),
 ):
     ensure_column(public_engine, "product_identifiers", _col, _ddl)
+ensure_column(public_engine, "countries", "language", "VARCHAR(10)")
+ensure_column(public_engine, "countries", "subdivision_label", "VARCHAR(30)")
+ensure_column(public_engine, "fiscal_rules", "rates", "JSON")
+
+
+def _seed_reference_data():
+    """Paises, UFs/provincias e tributos de fabrica - instalacao nova ja
+    sobe pronta pra consulta. So insere o que falta."""
+    from app.database import PublicSession
+    from app.reference_data import ensure_reference_data
+
+    db = PublicSession()
+    try:
+        ensure_reference_data(db)
+    finally:
+        db.close()
+
+
+_seed_reference_data()
+
 
 def _start_ncm_auto_update():
     """Tabela NCM oficial + IPI (TIPI) e II (TEC) sempre em dia sem cron:
@@ -94,6 +114,8 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(moderation.router)
 app.include_router(admin.router)
+app.include_router(admin_taxes.router)
+app.include_router(lookup.router)
 app.include_router(export.router)
 app.include_router(stats.router)
 
@@ -195,9 +217,19 @@ def admin_users_page(request: Request):
     return templates.TemplateResponse("admin_users.html", {"request": request})
 
 
+@app.get("/admin/tributos", response_class=HTMLResponse, include_in_schema=False)
+def admin_taxes_page(request: Request):
+    return templates.TemplateResponse("admin_taxes.html", {"request": request})
+
+
 @app.get("/account", response_class=HTMLResponse, include_in_schema=False)
 def account_page(request: Request):
     return templates.TemplateResponse("account.html", {"request": request})
+
+
+@app.get("/api", response_class=HTMLResponse, include_in_schema=False)
+def api_page(request: Request):
+    return templates.TemplateResponse("api.html", {"request": request, "base_url": _base_url(request)})
 
 
 @app.get("/apoie", response_class=HTMLResponse, include_in_schema=False)
@@ -236,6 +268,14 @@ def llms_txt(request: Request):
 > Base de dados publica, gratuita e colaborativa de produtos brasileiros: dado um codigo de barras (GTIN/EAN), NCM ou nome, devolve identificacao do produto (nome, marca, fabricante, categoria, unidade), embalagens (um GTIN por tamanho, ex: 1 kg, 15 kg) e a classificacao fiscal (NCM, CEST) com aliquotas de referencia (ICMS, FCP, IPI, PIS, COFINS, II, CBS/IBS). Feita para ERPs, PDVs e emissores de NF-e/NFC-e. Software AGPLv3, dados ODbL v1.0.
 
 Toda leitura e publica, sem autenticacao e sem chave. Escrita (cadastrar/editar) exige conta e o header `X-API-Key`; contribuicoes de contas novas passam por moderacao ou votacao da comunidade.
+
+## Consulta de tributos (estilo ViaCEP)
+
+- [Tributos de um NCM numa UF]({base}/v1/BR/SP/23091000): `GET /v1/<pais>/<uf>/<ncm ou GTIN>` - lista `taxes` com codigo, nome traduzido (`?lang=pt|es|en`), aliquota (`rate`), esfera e fonte
+- [So os nacionais]({base}/v1/AR/23091000): `GET /v1/<pais>/<ncm>`
+- [Paises, UFs/provincias e tributos]({base}/v1/UY): `GET /v1/<pais>` (paises: `GET /countries`)
+- `general_rate: true` = aliquota geral do pais (sem regra especifica pro NCM); `rate: null` = tributo existe mas ainda sem dado
+- Pagina com exemplos: {base}/api
 
 ## API (leitura, sem autenticacao)
 

@@ -33,6 +33,15 @@ def clean_db():
     PublicBase.metadata.drop_all(bind=public_engine)
     PublicBase.metadata.create_all(bind=public_engine)
     CommunityBase.metadata.create_all(bind=community_engine)
+    # Mesmo estado de uma instalacao nova: paises, UFs e tributos de fabrica.
+    from app.database import PublicSession
+    from app.reference_data import ensure_reference_data
+
+    db = PublicSession()
+    try:
+        ensure_reference_data(db)
+    finally:
+        db.close()
     yield
 
 
@@ -80,4 +89,11 @@ def newbie_headers(client):
 def moderator_headers(client):
     raw_key = register(client, "mod_user")
     set_user("mod_user", role="moderator")
+    return {"X-API-Key": raw_key}
+
+
+@pytest.fixture
+def admin_headers(client):
+    raw_key = register(client, "admin_user")
+    set_user("admin_user", role="admin")
     return {"X-API-Key": raw_key}

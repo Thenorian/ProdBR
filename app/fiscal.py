@@ -85,6 +85,13 @@ def resolve_fiscal_rule(
                 if rule not in used:
                     used.append(rule)
                 break
+    rates = {}
+    for rule in reversed(candidates):  # mais especifica por ultimo = vence
+        if rule.rates:
+            rates.update(rule.rates)
+            if rule not in used:
+                used.append(rule)
+    merged.rates = rates or None
     used = used or [top]
     notes = [rule.notes for rule in used if rule.notes]
     merged.notes = " ".join(notes)[:500] or None

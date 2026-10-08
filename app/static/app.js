@@ -194,6 +194,10 @@ function initNav() {
           const adminLink = document.getElementById("nav-admin");
           if (adminLink) adminLink.hidden = false;
         }
+        if (profile.role === "admin") {
+          const taxesLink = document.getElementById("nav-admin-taxes");
+          if (taxesLink) taxesLink.hidden = false;
+        }
       })
       .catch(() => {});
   } else {

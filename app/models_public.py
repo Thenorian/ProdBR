@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import PublicBase
@@ -15,14 +15,20 @@ def utcnow() -> datetime:
 
 
 class Country(PublicBase):
-    """Pais do Mercosul (bloco a que o NCM pertence). `id` e' o codigo ISO
-    3166-1 alpha-2 (ex: "BR") - mesmo valor ja usado em FiscalRule.country,
-    entao vira FK sem precisar migrar dado nenhum."""
+    """Pais com dados fiscais. `id` e' o codigo ISO 3166-1 alpha-2 (ex:
+    "BR") - mesmo valor ja usado em FiscalRule.country. Vem semeado com o
+    Mercosul (o NCM e do bloco), mas o admin pode cadastrar qualquer pais.
+
+    `language` (BCP 47, ex: "es-AR") define em que idioma a consulta
+    responde por padrao; `subdivision_label` e como o pais chama o nivel
+    abaixo dele ("UF", "Provincia", "Departamento")."""
 
     __tablename__ = "countries"
 
     id: Mapped[str] = mapped_column(String(2), primary_key=True)
     name: Mapped[str] = mapped_column(String(50))
+    language: Mapped[str] = mapped_column(String(10), default="pt-BR")
+    subdivision_label: Mapped[str] = mapped_column(String(30), default="UF")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -40,6 +46,39 @@ class State(PublicBase):
     name: Mapped[str] = mapped_column(String(80))
     code: Mapped[str] = mapped_column(String(5))
     country_id: Mapped[str] = mapped_column(ForeignKey("countries.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class TaxType(PublicBase):
+    """Um tributo de um pais (ICMS, IPI, IVA, Ingresos Brutos...), definido
+    pelo admin. As aliquotas por NCM/UF ficam em FiscalRule: nas colunas
+    proprias quando `column` aponta pra uma (tributos do Brasil, que ja
+    existiam antes) ou em `FiscalRule.rates[code]` (qualquer outro).
+
+    `name` e o nome oficial no idioma do pais; `translations` traz o nome
+    em outros idiomas ({"pt": ..., "es": ..., "en": ...}). `default_rate`
+    e a aliquota geral do pais (ex: IVA 21% na Argentina), usada quando
+    nao ha regra especifica pro NCM - a consulta avisa que e a geral."""
+
+    __tablename__ = "tax_types"
+    __table_args__ = (UniqueConstraint("country_id", "code", name="uq_tax_type_country_code"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    country_id: Mapped[str] = mapped_column(ForeignKey("countries.id"), index=True)
+    code: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(120))
+    translations: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # "national" (vale no pais todo) ou "state" (varia por UF/provincia).
+    level: Mapped[str] = mapped_column(String(10), default="national")
+    # "percent" ou "amount" (valor fixo por unidade, ex: imposto especifico).
+    unit: Mapped[str] = mapped_column(String(10), default="percent")
+    column: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    default_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    default_source: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -160,7 +199,9 @@ class FiscalRule(PublicBase):
     ncm: Mapped[str] = mapped_column(String(8), index=True)
     cest: Mapped[str | None] = mapped_column(String(7), nullable=True)
     country: Mapped[str] = mapped_column(ForeignKey("countries.id"), default="BR", index=True)
-    uf: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    # Sigla da UF/provincia/departamento (State.code) - ate 5 caracteres
+    # ("SP", "B" na Argentina, "ASU" no Paraguai).
+    uf: Mapped[str | None] = mapped_column(String(5), nullable=True)
 
     # Codigo de origem da mercadoria (tabela ICMS - Origem, 0 a 8).
     origin: Mapped[int | None] = mapped_column(nullable=True)
@@ -182,6 +223,9 @@ class FiscalRule(PublicBase):
     # Espaco livre para particularidades do regime (monofasico, isencao,
     # reducao de base de calculo etc.) que nao valem um campo dedicado.
     notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Aliquotas dos tributos sem coluna propria, por TaxType.code
+    # (ex: {"IVA": 21.0, "IIBB": 3.5}) - o que o admin cadastrar pro pais.
+    rates: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     valid_from: Mapped[date] = mapped_column(Date)
     valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)

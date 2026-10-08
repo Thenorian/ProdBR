@@ -17,6 +17,10 @@ async function loadNcm() {
     const revisionsRes = await fetch(`/revisions?entity_type=ncm_classification&entity_id=${encodeURIComponent(ncmCode)}&limit=10`);
     const revisions = revisionsRes.ok ? await revisionsRes.json() : [];
 
+    // Colunas da tabela de regras = tributos de cada pais (cadastrados
+    // pelo admin), entao carrega antes de desenhar.
+    await Promise.all([...new Set(ncm.fiscal_rules.map((r) => r.country))].map(getTaxTypes));
+
     currentNcm = ncm;
     currentRevisions = revisions;
     render(ncm, revisions);
@@ -98,7 +102,7 @@ function renderNotFound() {
           showMessage(messageEl, "success", "Cadastrado! Recarregando...");
           setTimeout(loadNcm, 900);
         } else {
-          showMessage(messageEl, "error", body.detail ? JSON.stringify(body.detail) : "Erro ao enviar.");
+          showMessage(messageEl, "error", errorText(body.detail));
         }
       } catch (err) {
         showMessage(messageEl, "error", err.message);
@@ -144,6 +148,11 @@ function taxSummary(rules) {
     </div>`;
 }
 
+function ruleTaxValue(rule, tax) {
+  const value = tax.column ? rule[tax.column] : (rule.rates || {})[tax.code];
+  return value == null ? null : value;
+}
+
 function fiscalRulesTable(rules) {
   if (!rules || rules.length === 0) {
     return '<p class="empty">Nenhuma regra fiscal cadastrada para este NCM ainda.</p>';
@@ -155,36 +164,31 @@ function fiscalRulesTable(rules) {
   }
   return [...byCountry.entries()]
     .map(([country, group]) => {
+      const types = taxTypesCache.get(country) || [];
       const rows = group
         .map(
           (f) => `
         <tr>
-          <td>${f.uf ? `UF ${escapeHtml(f.uf)}` : "Nacional"}</td>
-          <td>${f.icms_rate ?? "—"}</td>
-          <td>${f.ipi_rate ?? "—"}</td>
-          <td>${f.pis_rate ?? "—"}</td>
-          <td>${f.cofins_rate ?? "—"}</td>
-          <td>${f.ii_rate ?? "—"}</td>
-          <td>${f.fcp_rate ?? "—"}</td>
-          <td>${f.cbs_rate ?? "—"}</td>
-          <td>${f.ibs_rate ?? "—"}</td>
+          <td>${f.uf ? escapeHtml(f.uf) : "Nacional"}</td>
+          ${types.map((t) => `<td>${ruleTaxValue(f, t) ?? "—"}</td>`).join("")}
           <td>${f.valid_until ? `${f.valid_from} a ${f.valid_until}` : `desde ${f.valid_from}`}</td>
         </tr>
-        <tr class="fiscal-source"><td colspan="10">${f.notes ? `${escapeHtml(f.notes)} · ` : ""}Fonte: ${escapeHtml(f.source)}</td></tr>`
+        <tr class="fiscal-source"><td colspan="${types.length + 2}">${f.notes ? `${escapeHtml(f.notes)} · ` : ""}Fonte: ${escapeHtml(f.source)}</td></tr>`
         )
         .join("");
       return `
       <div class="ncm-country-group">
         <h4>${escapeHtml(country)}</h4>
+        <div class="table-scroll">
         <table class="fiscal-table">
           <thead><tr>
-            <th>Escopo</th><th>ICMS${helpIcon("icms")}</th><th>IPI${helpIcon("ipi")}</th>
-            <th>PIS${helpIcon("pis")}</th><th>COFINS${helpIcon("cofins")}</th>
-            <th>II${helpIcon("ii")}</th><th>FCP${helpIcon("fcp")}</th>
-            <th>CBS${helpIcon("cbs")}</th><th>IBS${helpIcon("ibs")}</th><th>Vigência</th>
+            <th>Escopo</th>
+            ${types.map((t) => `<th><span title="${escapeHtml(t.name)}">${escapeHtml(t.code.replace(/_/g, " "))}</span>${helpIcon(t.code.toLowerCase())}</th>`).join("")}
+            <th>Vigência</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
+        </div>
       </div>`;
     })
     .join("");
@@ -412,7 +416,7 @@ function wireEditing(ncm) {
         showMessage(messageEl, "success", "Contribuição aplicada. Recarregando...");
         setTimeout(loadNcm, 900);
       } else {
-        showMessage(messageEl, "error", body.detail ? JSON.stringify(body.detail) : "Erro ao enviar.");
+        showMessage(messageEl, "error", errorText(body.detail));
       }
     } catch (err) {
       showMessage(messageEl, "error", err.message);
@@ -420,21 +424,41 @@ function wireEditing(ncm) {
   });
 }
 
+// Campos fixos da regra; as aliquotas vem dos tributos do pais escolhido
+// (GET /countries/{pais}/tax-types), cadastrados pelo admin.
 const FISCAL_FIELDS = [
   ["cest", "CEST", "text", { maxlength: 7 }],
   ["origin", "Origem (0-8)", "number", { min: 0, max: 8, step: 1 }],
-  ["icms_rate", "ICMS (%)", "number", { min: 0, max: 100, step: "0.01" }],
-  ["fcp_rate", "FCP (%)", "number", { min: 0, max: 100, step: "0.01" }],
-  ["icms_st_mva_rate", "MVA ICMS-ST (%)", "number", { min: 0, step: "0.01" }],
-  ["ipi_rate", "IPI (%)", "number", { min: 0, max: 100, step: "0.01" }],
-  ["ii_rate", "II (%)", "number", { min: 0, max: 100, step: "0.01" }],
-  ["pis_rate", "PIS (%)", "number", { min: 0, max: 100, step: "0.01" }],
-  ["cofins_rate", "COFINS (%)", "number", { min: 0, max: 100, step: "0.01" }],
-  ["cbs_rate", "CBS (%)", "number", { min: 0, max: 100, step: "0.01" }],
-  ["ibs_rate", "IBS (%)", "number", { min: 0, max: 100, step: "0.01" }],
   ["valid_from", "Vigente desde", "date", { required: true }],
   ["valid_until", "Vigente até (vazio = sem fim)", "date", {}],
 ];
+
+const taxTypesCache = new Map();
+async function getTaxTypes(countryId) {
+  if (!taxTypesCache.has(countryId)) {
+    const res = await fetch(`/countries/${encodeURIComponent(countryId)}/tax-types`);
+    taxTypesCache.set(countryId, res.ok ? await res.json() : []);
+  }
+  return taxTypesCache.get(countryId);
+}
+
+function taxInputsHtml(types, rule) {
+  if (!types.length) {
+    return '<p class="form-hint full">Nenhum tributo cadastrado para este país ainda — um administrador cadastra em Ferramentas › Países e tributos.</p>';
+  }
+  return types
+    .map((t) => {
+      const value = rule ? ruleTaxValue(rule, t) : null;
+      const unit = t.unit === "amount" ? "valor" : "%";
+      const hint = t.default_rate != null ? `geral: ${t.default_rate}${t.unit === "amount" ? "" : "%"}` : "";
+      return `
+      <div class="form-group">
+        <label title="${escapeHtml(t.name)}">${escapeHtml(t.code.replace(/_/g, " "))} (${unit})</label>
+        <input name="tax:${escapeHtml(t.code)}" type="number" min="0" step="0.01" value="${value ?? ""}" placeholder="${escapeHtml(hint)}" />
+      </div>`;
+    })
+    .join("");
+}
 
 let countriesCache = null;
 async function getCountries() {
@@ -468,7 +492,8 @@ async function fiscalRuleFormHtml(rule) {
       </div>`).join("");
 
   const selectedCountry = v("country", "BR") || "BR";
-  const [countries, states] = await Promise.all([getCountries(), getStates(selectedCountry)]);
+  const [countries, states, types] = await Promise.all([getCountries(), getStates(selectedCountry), getTaxTypes(selectedCountry)]);
+  const label = (countries.find((c) => c.id === selectedCountry) || {}).subdivision_label || "UF";
   const countryOptionsHtml = countries
     .map((c) => `<option value="${escapeHtml(c.id)}" ${c.id === selectedCountry ? "selected" : ""}>${escapeHtml(c.name)} (${escapeHtml(c.id)})</option>`)
     .join("");
@@ -481,10 +506,12 @@ async function fiscalRuleFormHtml(rule) {
           <select name="country" id="fiscal-country-select">${countryOptionsHtml}</select>
         </div>
         <div class="form-group">
-          <label>UF${helpIcon("uf")}</label>
+          <label id="fiscal-uf-label">${escapeHtml(label)}${helpIcon("uf")}</label>
           <select name="uf" id="fiscal-uf-select">${stateOptionsHtml(states, v("uf", ""))}</select>
         </div>
         ${fields}
+        <div class="form-group full"><h4 class="tax-inputs-title">Alíquotas</h4></div>
+        <div class="tax-inputs full" id="fiscal-tax-inputs">${taxInputsHtml(types, rule)}</div>
         <div class="form-group full">
           <label>Fonte</label>
           <input name="source" value="${escapeHtml(v("source"))}" required />
@@ -539,8 +566,12 @@ function wireFiscalManagement(ncm) {
       formWrap.innerHTML = "";
     });
     document.getElementById("fiscal-country-select").addEventListener("change", async (e) => {
-      const states = await getStates(e.target.value);
+      const [countries, states, types] = await Promise.all([getCountries(), getStates(e.target.value), getTaxTypes(e.target.value)]);
+      const country = countries.find((c) => c.id === e.target.value) || {};
+      document.getElementById("fiscal-uf-label").firstChild.textContent = country.subdivision_label || "UF";
       document.getElementById("fiscal-uf-select").innerHTML = stateOptionsHtml(states, null);
+      // Trocar de pais numa regra existente: nao reaproveita aliquotas do outro pais.
+      document.getElementById("fiscal-tax-inputs").innerHTML = taxInputsHtml(types, rule && rule.country === e.target.value ? rule : null);
     });
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -555,6 +586,12 @@ function wireFiscalManagement(ncm) {
       };
       for (const [name] of FISCAL_FIELDS) {
         payload[name] = data[name] === "" ? null : data[name];
+      }
+      // Todas as aliquotas por codigo do tributo; o servidor manda as que
+      // tem coluna propria (ICMS, IPI...) pra coluna certa.
+      payload.rates = {};
+      for (const [name, value] of Object.entries(data)) {
+        if (name.startsWith("tax:")) payload.rates[name.slice(4)] = value === "" ? null : Number(value);
       }
       const url = rule ? `/fiscal-rules/${rule.id}` : "/fiscal-rules";
       const method = rule ? "PUT" : "POST";
@@ -571,7 +608,7 @@ function wireFiscalManagement(ncm) {
           showMessage(messageEl, "success", "Regra fiscal salva. Recarregando...");
           setTimeout(loadNcm, 900);
         } else {
-          showMessage(messageEl, "error", body.detail ? JSON.stringify(body.detail) : "Erro ao enviar.");
+          showMessage(messageEl, "error", errorText(body.detail));
         }
       } catch (err) {
         showMessage(messageEl, "error", err.message);
@@ -588,3 +625,10 @@ function showMessage(el, kind, text) {
 }
 
 loadNcm();
+
+// Erro da API legivel: 422 do FastAPI vem como lista ({loc, msg}); o resto como texto.
+function errorText(detail) {
+  if (!detail) return "Erro ao enviar.";
+  if (Array.isArray(detail)) return detail.map((d) => `${(d.loc || []).slice(1).join(".")}: ${d.msg}`).join("; ");
+  return typeof detail === "string" ? detail : JSON.stringify(detail);
+}

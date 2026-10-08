@@ -41,8 +41,8 @@ Argentina, Paraguai e Uruguai — por isso `NcmClassification` não tem
 campo de país: o código e a descrição são os mesmos no bloco todo. Já a
 tributação sobre essa classificação é decidida por cada país-membro, e
 por isso toda `FiscalRule` tem um campo `country` (ISO 3166-1 alpha-2,
-padrão `"BR"`). Hoje só há dados fiscais do Brasil — o schema já está
-pronto para os demais membros sem precisar de migração.
+padrão `"BR"`). Os quatro membros já vêm com subdivisões e tributos, e o
+admin cadastra qualquer outro país (ver "Consulta de tributos" abaixo).
 
 ### Tributos cobertos (Brasil)
 
@@ -105,6 +105,18 @@ pouco a cada rejeição.
 
 ## Rodando localmente
 
+Com Docker, um comando só:
+
+```bash
+docker compose up -d        # http://localhost:8000 — dados em ./data
+```
+
+A instância nasce pronta: países do Mercosul, UFs/províncias/departamentos
+e tributos de cada país já vêm cadastrados. No primeiro minuto, ela baixa
+sozinha a tabela NCM e o IPI/II oficiais, e depois atualiza todo dia.
+
+Sem Docker:
+
 ```bash
 python -m venv venv
 ./venv/Scripts/activate        # Windows
@@ -166,6 +178,57 @@ o nome do recebedor) e/ou `DONATION_URL` (GitHub Sponsors, Apoia.se...) no
 `.env`. Com alguma delas preenchida, aparecem a página `/apoie`, o link
 "Apoie o projeto" no menu e um aviso discreto na home. Vazias (padrão), nada
 aparece - quem hospeda a própria cópia nunca exibe a chave de outra pessoa.
+
+## Consulta de tributos (estilo ViaCEP)
+
+Uma URL, uma resposta JSON pronta, sem login e sem chave:
+
+```
+GET /v1/BR/SP/23091000         tributos do NCM em SP
+GET /v1/AR/B/23091000?lang=pt  Argentina, Buenos Aires, nomes em português
+GET /v1/BR/SP/7898242031936    pelo código de barras (traz o produto junto)
+GET /v1/UY/23091000            só os tributos nacionais
+GET /v1/PY                     departamentos e tributos do Paraguai
+```
+
+```json
+{
+  "ncm": "23091000",
+  "country": {"code": "AR", "name": "Argentina", "language": "es-AR", "subdivision_label": "Provincia"},
+  "state": {"code": "B", "name": "Buenos Aires"},
+  "lang": "pt",
+  "taxes": [
+    {"code": "IVA", "name": "Imposto sobre o Valor Agregado", "local_name": "Impuesto al Valor Agregado",
+     "level": "national", "unit": "percent", "rate": 21.0, "general_rate": true, "source": "Ley de IVA nº 23.349 (alícuota general)"},
+    {"code": "IIBB", "name": "Imposto sobre Receitas Brutas (provincial)", "rate": 3.5, "general_rate": false, "...": "..."}
+  ]
+}
+```
+
+- `general_rate: true`: o NCM ainda não tem regra própria, então vale a
+  alíquota geral do país. `rate: null`: o tributo existe, mas ainda não tem
+  dado.
+- A regra da UF/província e a nacional se somam campo a campo.
+- Os códigos seguem a ISO 3166-1 (país) e a ISO 3166-2 (UF/província).
+- A página `/api` tem o "testar agora" e exemplos em curl, JS e Python.
+
+### Qualquer país, definido pelo admin
+
+Em **Países e tributos** (`/admin/tributos`, só admin), o admin cadastra:
+
+- o país, com o idioma das respostas e o nome da subdivisão;
+- as UFs/províncias;
+- os tributos, com nome oficial, tradução pt/es/en, esfera (nacional ou por
+  UF), unidade e alíquota geral.
+
+Cada tributo novo vira um campo no formulário de regra fiscal de cada NCM e
+um item na consulta. A API de admin é `/admin/countries`,
+`/admin/countries/{id}/states` e `/admin/tax-types`.
+
+As alíquotas ficam em `FiscalRule`: os tributos do Brasil têm colunas
+próprias (`icms_rate`, `ipi_rate`...), e os demais ficam em
+`rates: {"IVA": 21}`. Quem grava pode mandar tudo em `rates`, até
+`{"ICMS": 18}`, e o servidor põe cada valor no lugar certo.
 
 ## Tabela NCM oficial (automática)
 

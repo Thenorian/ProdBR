@@ -97,8 +97,8 @@ class IdentifierDelete(BaseModel):
 class FiscalRuleBase(BaseModel):
     ncm: str = Field(..., min_length=8, max_length=8)
     cest: str | None = Field(None, max_length=7)
-    country: str = Field("BR", min_length=2, max_length=2, description="Pais do Mercosul a que essa regra se refere (ISO 3166-1 alpha-2). Hoje so ha dados para BR.")
-    uf: str | None = Field(None, min_length=2, max_length=2, description="Sigla do estado/provincia, ou nulo para regra nacional/default.")
+    country: str = Field("BR", min_length=2, max_length=2, description="Pais a que essa regra se refere (ISO 3166-1 alpha-2, ver /countries).")
+    uf: str | None = Field(None, min_length=1, max_length=5, description="Codigo da UF/provincia/departamento (ver /countries/{pais}/states), ou nulo para regra nacional/default.")
     origin: int | None = Field(None, ge=0, le=8)
     icms_rate: float | None = Field(None, ge=0, le=100)
     ipi_rate: float | None = Field(None, ge=0, le=1000)
@@ -110,6 +110,7 @@ class FiscalRuleBase(BaseModel):
     fcp_rate: float | None = Field(None, ge=0, le=100, description="Fundo de Combate a Pobreza - adicional estadual sobre o ICMS.")
     icms_st_mva_rate: float | None = Field(None, ge=0, description="Margem de Valor Agregado para calculo do ICMS-ST.")
     notes: str | None = Field(None, max_length=500, description="Particularidades do regime (isencao, monofasico, reducao de base de calculo etc).")
+    rates: dict[str, float | None] | None = Field(None, description="Aliquotas dos tributos do pais sem campo proprio, por codigo (ver /countries/{pais}/tax-types). Ex: {\"IVA\": 21, \"IIBB\": 3.5}.")
     valid_from: date
     valid_until: date | None = None
     source: str = Field(..., min_length=1, max_length=120)
@@ -123,7 +124,7 @@ class FiscalRuleUpdate(BaseModel):
     ncm: str | None = Field(None, min_length=8, max_length=8)
     cest: str | None = Field(None, max_length=7)
     country: str | None = Field(None, min_length=2, max_length=2)
-    uf: str | None = Field(None, min_length=2, max_length=2)
+    uf: str | None = Field(None, min_length=1, max_length=5)
     origin: int | None = Field(None, ge=0, le=8)
     icms_rate: float | None = Field(None, ge=0, le=100)
     ipi_rate: float | None = Field(None, ge=0, le=1000)
@@ -135,6 +136,7 @@ class FiscalRuleUpdate(BaseModel):
     fcp_rate: float | None = Field(None, ge=0, le=100)
     icms_st_mva_rate: float | None = Field(None, ge=0)
     notes: str | None = Field(None, max_length=500)
+    rates: dict[str, float | None] | None = None
     valid_from: date | None = None
     valid_until: date | None = None
     source: str | None = Field(None, min_length=1, max_length=120)
@@ -153,6 +155,74 @@ class CountryOut(BaseModel):
 
     id: str
     name: str
+    language: str | None = None
+    subdivision_label: str | None = None
+
+
+class CountryCreate(BaseModel):
+    id: str = Field(..., min_length=2, max_length=2, description="ISO 3166-1 alpha-2 (ex: CL).")
+    name: str = Field(..., min_length=1, max_length=50)
+    language: str = Field("pt-BR", min_length=2, max_length=10, description="Idioma padrao das respostas (BCP 47, ex: es-CL).")
+    subdivision_label: str = Field("UF", min_length=1, max_length=30, description="Como o pais chama a subdivisao (UF, Provincia, Region...).")
+
+
+class CountryUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=50)
+    language: str | None = Field(None, min_length=2, max_length=10)
+    subdivision_label: str | None = Field(None, min_length=1, max_length=30)
+
+
+class StateCreate(BaseModel):
+    code: str = Field(..., min_length=1, max_length=5)
+    name: str = Field(..., min_length=1, max_length=80)
+
+
+TAX_LEVELS = ("national", "state")
+TAX_UNITS = ("percent", "amount")
+
+
+class TaxTypeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    country_id: str
+    code: str
+    name: str
+    translations: dict[str, str] | None = None
+    description: str | None = None
+    level: str
+    unit: str
+    column: str | None = None
+    default_rate: float | None = None
+    default_source: str | None = None
+    sort_order: int
+    active: bool
+
+
+class TaxTypeCreate(BaseModel):
+    country_id: str = Field(..., min_length=2, max_length=2)
+    code: str = Field(..., min_length=1, max_length=20, pattern=r"^[A-Za-z0-9_]+$", description="Sigla do tributo (ex: IVA, IIBB).")
+    name: str = Field(..., min_length=1, max_length=120, description="Nome oficial no idioma do pais.")
+    translations: dict[str, str] | None = Field(None, description="Nome em outros idiomas: {\"pt\": ..., \"es\": ..., \"en\": ...}.")
+    description: str | None = Field(None, max_length=500)
+    level: str = Field("national", pattern="^(national|state)$")
+    unit: str = Field("percent", pattern="^(percent|amount)$")
+    default_rate: float | None = Field(None, ge=0)
+    default_source: str | None = Field(None, max_length=120)
+    sort_order: int = 0
+    active: bool = True
+
+
+class TaxTypeUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=120)
+    translations: dict[str, str] | None = None
+    description: str | None = Field(None, max_length=500)
+    level: str | None = Field(None, pattern="^(national|state)$")
+    unit: str | None = Field(None, pattern="^(percent|amount)$")
+    default_rate: float | None = Field(None, ge=0)
+    default_source: str | None = Field(None, max_length=120)
+    sort_order: int | None = None
+    active: bool | None = None
 
 
 class StateOut(BaseModel):

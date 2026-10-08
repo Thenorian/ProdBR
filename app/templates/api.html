@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Consulta de tributos — ProdBR{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>Consulta de tributos</h1>
+    <p>Uma URL, uma resposta JSON pronta para usar no seu sistema, do mesmo jeito que o ViaCEP. Informe o país, a UF/província e o NCM ou o código de barras e receba todos os tributos daquele lugar, com o nome traduzido, a alíquota e a fonte. Sem cadastro, sem chave e de graça.</p>
+  </div>
+
+  <h2 class="section-title">Testar agora</h2>
+  <form id="api-try" class="admin-taxes-box">
+    <div class="form-grid">
+      <div class="form-group"><label>País</label><select name="country" id="try-country"></select></div>
+      <div class="form-group"><label id="try-state-label">UF</label><select name="state" id="try-state"></select></div>
+      <div class="form-group"><label>NCM ou código de barras</label><input name="code" id="try-code" value="23091000" required /></div>
+      <div class="form-group"><label>Idioma</label>
+        <select name="lang" id="try-lang"><option value="">do país</option><option value="pt">Português</option><option value="es">Español</option><option value="en">English</option></select>
+      </div>
+    </div>
+    <div class="form-actions"><button type="submit" class="btn btn-sm">Consultar</button></div>
+    <p class="form-hint">URL: <code id="try-url"></code></p>
+    <pre class="api-json" id="try-result" hidden></pre>
+  </form>
+
+  <h2 class="section-title">Endereços</h2>
+  <table class="fiscal-table api-routes">
+    <tbody>
+      <tr><td><code>GET /v1/{país}/{uf}/{ncm}</code></td><td>Tributos do NCM na UF/província. Ex: <a href="/v1/BR/SP/23091000"><code>/v1/BR/SP/23091000</code></a></td></tr>
+      <tr><td><code>GET /v1/{país}/{ncm}</code></td><td>Só os tributos nacionais. Ex: <a href="/v1/AR/23091000"><code>/v1/AR/23091000</code></a></td></tr>
+      <tr><td><code>GET /v1/{país}/{uf}/{código de barras}</code></td><td>Pelo GTIN/EAN: devolve também o produto e a embalagem.</td></tr>
+      <tr><td><code>GET /v1/{país}</code></td><td>As UFs/províncias e os tributos cadastrados no país. Ex: <a href="/v1/UY"><code>/v1/UY</code></a></td></tr>
+      <tr><td><code>?lang=pt|es|en</code></td><td>Idioma dos nomes dos tributos (padrão: o do país).</td></tr>
+      <tr><td><code>?date=2027-01-01</code></td><td>Tributos vigentes em outra data.</td></tr>
+      <tr><td><code>?cest=0000000</code></td><td>Regra específica de um CEST (Brasil).</td></tr>
+    </tbody>
+  </table>
+  <p class="form-hint">Cada tributo vem com <code>rate</code> (alíquota). <code>general_rate: true</code> quer dizer que ainda não há regra para esse NCM e a alíquota é a geral do país. Quando <code>rate</code> vem <code>null</code>, o tributo existe mas ainda não tem dado: <a href="/view/ncm">cadastre</a>. Os códigos de país seguem a ISO 3166-1 e os de UF/província a ISO 3166-2.</p>
+
+  <h2 class="section-title">Exemplos</h2>
+  <pre class="api-json">curl {{ base_url }}/v1/BR/SP/23091000
+
+// JavaScript
+const r = await fetch("{{ base_url }}/v1/AR/B/23091000?lang=pt").then(r => r.json());
+r.taxes.forEach(t => console.log(t.name, t.rate));
+
+# Python
+import json, urllib.request
+dados = json.load(urllib.request.urlopen("{{ base_url }}/v1/UY/MO/23091000"))</pre>
+
+  <h2 class="section-title">Rodar na sua máquina</h2>
+  <p>O ProdBR é 100% código aberto. Uma cópia local sobe já com os países, as UFs/províncias e os tributos do Mercosul. No primeiro minuto, ela baixa sozinha a tabela NCM e o IPI/II oficiais e depois atualiza todo dia.</p>
+  <pre class="api-json">git clone https://github.com/Thenorian/ProdBR.git
+cd ProdBR
+docker compose up -d          # pronto em http://localhost:8000
+
+# sem Docker:
+pip install -r requirements.txt
+uvicorn app.main:app --port 8000</pre>
+  <p class="form-hint">Para ter também os produtos desta instância, baixe a base completa em <a href="/export/sqlite">/export/sqlite</a>.</p>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/api.js?v={{ static_v }}"></script>
+{% endblock %}

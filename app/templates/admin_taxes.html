@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Países e tributos — ProdBR{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>Países e tributos</h1>
+    <p>Cada país tem as suas subdivisões (UF, província, departamento) e os seus tributos, com o nome oficial e a tradução. Depois de cadastrar um tributo aqui, ele aparece no formulário de regra fiscal de cada NCM e na <a href="/api">consulta de tributos</a>. A <strong>alíquota geral</strong> é usada quando o NCM ainda não tem regra própria (ex: IVA 21% na Argentina).</p>
+  </div>
+  <div id="taxes-admin"><p class="empty">Carregando...</p></div>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/admin_taxes.js?v={{ static_v }}"></script>
+{% endblock %}

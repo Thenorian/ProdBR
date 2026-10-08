@@ -1227,3 +1227,27 @@ h1, h2, .page-header h1, .article-header h1, .form-card h1 {
 .tax-summary { width: auto; min-width: 16rem; }
 .tax-summary th { text-align: left; padding-right: 1.5rem; }
 .fiscal-source td { font-size: .8rem; color: var(--muted); border-top: none; padding-top: 0; }
+
+/* Aliquotas no formulario de regra fiscal (tributos do pais escolhido) */
+.tax-inputs { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: .5rem 1rem; }
+.tax-inputs-title { margin: .5rem 0 0; }
+.table-scroll { overflow-x: auto; }
+
+/* Admin: paises e tributos */
+.admin-taxes-bar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+.admin-taxes-box { border: 1px solid var(--border); background: var(--card-bg); padding: .75rem 1rem; margin-bottom: 1rem; }
+.admin-taxes-box h3 { margin-top: 0; }
+.admin-taxes-table input, .admin-taxes-table select { width: 100%; min-width: 6rem; }
+.admin-taxes-table input[type="checkbox"] { width: auto; min-width: 0; }
+.admin-taxes-table .input-narrow, .inline-form .input-narrow { min-width: 3.5rem; width: 4.5rem; }
+.tax-inactive td { opacity: .55; }
+.state-chips { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: .35rem; }
+.state-chips li { border: 1px solid var(--border-light); padding: .15rem .45rem; font-size: .85rem; }
+.link-btn { background: none; border: none; color: var(--danger); cursor: pointer; padding: 0 .15rem; }
+.link-btn.confirm { font-size: .75rem; text-decoration: underline; }
+.inline-form { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+/* Pagina /api */
+.api-json { background: var(--page-bg); border: 1px solid var(--border-light); padding: .75rem; overflow-x: auto; font-size: .85rem; max-height: 32rem; }
+.api-routes td:first-child { white-space: nowrap; }
+@media (max-width: 640px) { .api-routes td:first-child { white-space: normal; } }

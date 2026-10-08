@@ -13,6 +13,7 @@ from app.models_public import FiscalRule, Product
 from app.rate_limit import limiter
 from app.routes.common import apply_or_400, get_or_404, write_response
 from app.schemas import FiscalRuleCreate, FiscalRuleOut, FiscalRuleUpdate
+from app.taxes import normalize_rule_payload
 
 router = APIRouter(tags=["fiscal"])
 
@@ -97,7 +98,7 @@ def create_fiscal_rule(
     db_community: DbSession = Depends(get_community_db),
     user: User = Depends(require_user),
 ):
-    data = payload.model_dump(mode="json", exclude={"reason"})
+    data = apply_or_400(normalize_rule_payload, db_public, payload.model_dump(mode="json", exclude={"reason"}))
     result = apply_or_400(
         propose_or_apply, db_public, db_community, user, "fiscal_rule", None, data, payload.reason
     )
@@ -114,8 +115,10 @@ def update_fiscal_rule(
     db_community: DbSession = Depends(get_community_db),
     user: User = Depends(require_user),
 ):
-    get_or_404(db_public, FiscalRule, rule_id, "Regra fiscal")
-    data = payload.model_dump(mode="json", exclude={"reason"}, exclude_unset=True)
+    current = get_or_404(db_public, FiscalRule, rule_id, "Regra fiscal")
+    data = apply_or_400(
+        normalize_rule_payload, db_public, payload.model_dump(mode="json", exclude={"reason"}, exclude_unset=True), current
+    )
     result = apply_or_400(
         propose_or_apply, db_public, db_community, user, "fiscal_rule", str(rule_id), data, payload.reason
     )

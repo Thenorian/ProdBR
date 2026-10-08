@@ -47,6 +47,7 @@ WRITABLE_FIELDS = {
         "fcp_rate",
         "icms_st_mva_rate",
         "notes",
+        "rates",
         "valid_from",
         "valid_until",
         "source",
