@@ -68,5 +68,5 @@ def collect() -> list[ImportedProduct]:
 
 if __name__ == "__main__":
     items = collect()
-    sql_path, csv_path = write_outputs(items, "premier_pet")
-    print(f"{len(items)} produtos PremieR Pet -> {sql_path.name}, {csv_path.name}")
+    csv_path = write_outputs(items, "premier_pet")
+    print(f"{len(items)} produtos PremieR Pet -> {csv_path.name}")

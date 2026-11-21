@@ -32,3 +32,16 @@ def test_reimportar_marca_o_que_saiu_da_tabela(ncm_table, tmp_path):
 
     ok, beer = public_database().select("ncm", where={"code": "22030000"}, fetch="one")
     assert beer["in_force"] == 0
+
+
+def test_tabela_mais_nova_da_pasta_e_importada_sozinha_uma_vez(tmp_path, monkeypatch):
+    from database.setup import import_newest_ncm_table_if_needed
+
+    (tmp_path / "Tabela_NCM_Vigente_20260101.json").write_text(SMALL_NCM_TABLE.read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.setenv("NCM_TABLES_FOLDER", str(tmp_path))
+
+    import_newest_ncm_table_if_needed()
+    import_newest_ncm_table_if_needed()
+
+    ok, import_count = public_database().count("ncm_imports")
+    assert import_count == 1

@@ -12,6 +12,8 @@ os.environ["DB_PATH"] = str(TEST_FOLDER / "prodbr.sqlite3")
 os.environ["COMMUNITY_DB_PATH"] = str(TEST_FOLDER / "prodbr_community.sqlite3")
 os.environ["LEGACY_PUBLIC_DB_PATH"] = str(TEST_FOLDER / "nao_existe_public.sqlite3")
 os.environ["LEGACY_COMMUNITY_DB_PATH"] = str(TEST_FOLDER / "nao_existe_community.sqlite3")
+# Pasta vazia: cada teste escolhe se importa a tabela pequena de NCM (fixture ncm_table).
+os.environ["NCM_TABLES_FOLDER"] = str(TEST_FOLDER / "sem_tabelas_ncm")
 
 from fastapi.testclient import TestClient  # noqa: E402
 

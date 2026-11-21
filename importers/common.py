@@ -18,7 +18,6 @@ Regras que todo importador deve seguir (vieram do pedido original):
 import csv
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
@@ -105,58 +104,22 @@ class ImportedProduct:
         return None
 
 
-def _sql_str(value: str | None) -> str:
-    if value is None:
-        return "NULL"
-    return "'" + value.replace("'", "''") + "'"
+def write_outputs(products: list[ImportedProduct], batch_name: str) -> Path:
+    """
+    Gera importers/output/<batch_name>.csv. Para gravar no banco, use:
 
+        python -m scripts.import_manufacturer_products importers/output/<batch_name>.csv
 
-def write_outputs(products: list[ImportedProduct], batch_name: str) -> tuple[Path, Path]:
-    """Gera <batch_name>.sql e <batch_name>.csv em importers/output/.
-
-    O SQL cobre `products` e `product_identifiers` (so quando ha GTIN
-    valido). NCM entra como sugestao (`ncm`), mas a coluna `ncm_confirmed`
-    do CSV avisa claramente que precisa de revisao humana antes de
-    qualquer coisa virar fonte de calculo fiscal.
+    O NCM do CSV é só sugestão por categoria (coluna ncm_confirmed = NAO).
     """
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    sql_path = OUTPUT_DIR / f"{batch_name}.sql"
     csv_path = OUTPUT_DIR / f"{batch_name}.csv"
-    now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(sep=" ", timespec="seconds")
-
-    sql_lines = [
-        f"-- Importador: {batch_name}",
-        f"-- Gerado em: {now} UTC",
-        f"-- {len(products)} produto(s). NCM = sugestao por categoria, NAO CONFIRMADA.",
-        "-- Revisar manualmente antes de aplicar em producao (ver coluna ncm_confirmed no CSV).",
-        "",
-    ]
 
     csv_rows = []
     for p in products:
-        pid = new_product_id()
-        ncm = p.ncm_suggested
-        sql_lines.append(
-            "INSERT INTO products "
-            "(id, name, brand, ncm, cest, category, commercial_unit, description, manufacturer, source, created_at, updated_at) "
-            "VALUES ("
-            f"{_sql_str(pid)}, {_sql_str(p.name)}, {_sql_str(p.brand)}, {_sql_str(ncm)}, {_sql_str(p.cest)}, "
-            f"{_sql_str(p.category)}, {_sql_str(p.commercial_unit)}, {_sql_str(p.description)}, "
-            f"{_sql_str(p.manufacturer)}, {_sql_str(p.source_url)}, {_sql_str(now)}, {_sql_str(now)}"
-            ");"
-        )
-        if ncm is None:
-            sql_lines.append(f"-- ATENCAO: '{p.name}' sem categoria de NCM mapeada - preencher manualmente.")
-        if p.gtin:
-            gtin_type = f"gtin{len(p.gtin)}"
-            sql_lines.append(
-                "INSERT INTO product_identifiers (product_id, type, value) VALUES ("
-                f"{_sql_str(pid)}, {_sql_str(gtin_type)}, {_sql_str(p.gtin)});"
-            )
-
         csv_rows.append(
             {
-                "id": pid,
+                "id": new_product_id(),
                 "name": p.name,
                 "brand": p.brand,
                 "manufacturer": p.manufacturer,
@@ -165,7 +128,7 @@ def write_outputs(products: list[ImportedProduct], batch_name: str) -> tuple[Pat
                 "commercial_unit": p.commercial_unit,
                 "description": p.description or "",
                 "gtin": p.gtin or "",
-                "ncm_suggested": ncm or "",
+                "ncm_suggested": p.ncm_suggested or "",
                 "ncm_confirmed": "NAO",
                 "cest": p.cest or "",
                 "source_url": p.source_url,
@@ -173,11 +136,9 @@ def write_outputs(products: list[ImportedProduct], batch_name: str) -> tuple[Pat
             }
         )
 
-    sql_path.write_text("\n".join(sql_lines) + "\n", encoding="utf-8")
-
     with csv_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(csv_rows[0].keys()) if csv_rows else [])
         writer.writeheader()
         writer.writerows(csv_rows)
 
-    return sql_path, csv_path
+    return csv_path

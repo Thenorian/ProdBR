@@ -15,12 +15,12 @@ def main() -> None:
     all_products = []
     for module in IMPORTERS:
         items = module.collect()
-        sql_path, csv_path = write_outputs(items, module.__name__.rsplit(".", 1)[-1])
-        print(f"{module.__name__}: {len(items)} produtos -> {sql_path.name}, {csv_path.name}")
+        csv_path = write_outputs(items, module.__name__.rsplit(".", 1)[-1])
+        print(f"{module.__name__}: {len(items)} produtos -> {csv_path.name}")
         all_products.extend(items)
 
-    sql_path, csv_path = write_outputs(all_products, "all_manufacturers")
-    print(f"\nTotal: {len(all_products)} produtos -> {sql_path.name}, {csv_path.name}")
+    csv_path = write_outputs(all_products, "all_manufacturers")
+    print(f"\nTotal: {len(all_products)} produtos -> {csv_path.name}")
 
 
 if __name__ == "__main__":

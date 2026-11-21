@@ -1,24 +1,24 @@
 # Importadores por fabricante
 
 Pipeline reproduzível para popular o ProdBR com produtos reais, um
-fabricante por vez — em vez de uma coleta manual única. Quando um
+fabricante por vez, em vez de uma coleta manual única. Quando um
 fabricante lançar produtos novos, basta rodar o importador dele de novo.
 
 ## Cobertura atual (honesta)
 
 Esta primeira rodada trouxe **36 produtos reais**, coletados manualmente
 navegando os sites oficiais dos fabricantes (PremieR Pet: 21, Tramontina:
-12, NGK: 3 — famílias de produto, não códigos de peça individuais).
+12, NGK: 3, sendo famílias de produto, não códigos de peça individuais).
 
 Isso está **bem abaixo** da meta de 2.000-20.000 produtos, de propósito:
 não existe hoje uma forma confiável de extrair em massa GTIN/NCM
 verificados de dezenas de fabricantes a partir de navegação manual de
-site — isso violaria a regra "nunca inventar produto ou atributo". Ver
+site, e isso violaria a regra "nunca inventar produto ou atributo". Ver
 "Como escalar" abaixo para o caminho real até esse volume.
 
 Nenhum GTIN foi gravado nesta rodada: nenhuma das páginas de fabricante
 visitadas publica código de barras por SKU (comum em sites voltados ao
-consumidor final — GTIN normalmente só aparece em catálogos B2B/EDI de
+consumidor final. GTIN normalmente só aparece em catálogos B2B/EDI de
 distribuidor). Isso é o comportamento correto, não uma falha: a regra é
 "se a fonte não informou, deixar vazio", nunca inventar.
 
@@ -34,12 +34,12 @@ python -m importers.ngk
 python -m importers.run_all
 ```
 
-Cada execução gera `importers/output/<nome>.sql` e `.csv`. O SQL cobre
-`products` e `product_identifiers` (só quando há GTIN validado). **NCM
-nunca é gravado como confirmado** — é sempre uma sugestão por categoria
-(`app/importers/common.py::NCM_SUGGESTIONS`), e o CSV tem uma coluna
-`ncm_confirmed` sempre `NAO` para deixar isso explícito a quem for revisar
-antes de aplicar em produção.
+Cada execução gera `importers/output/<nome>.csv`. Para gravar no banco:
+`python -m scripts.import_manufacturer_products importers/output/<nome>.csv`.
+**NCM nunca é gravado como confirmado**: é uma sugestão por categoria
+(`importers/common.py::NCM_SUGGESTIONS`), a coluna `ncm_confirmed` do CSV é
+sempre `NAO`, e o script só aceita o NCM se ele estiver em vigor na tabela
+oficial.
 
 ## Como funciona / regras que todo importador segue
 
@@ -56,7 +56,7 @@ do pedido original e devem valer para qualquer importador novo):
   por categoria (não por produto individual) em `NCM_SUGGESTIONS`. Se a
   categoria não tem uma entrada mapeada (porque a classificação real
   exigiria mais confiança do que uma tabela genérica permite), o produto
-  entra com NCM vazio e um aviso `-- ATENCAO` no SQL, para alguém
+  entra com NCM vazio (e usa o da categoria, se houver), para alguém
   preencher manualmente.
 - **Sem marketplace**: as fontes usadas são sempre o site oficial do
   fabricante (ou a loja oficial dele, como a Tramontina Store) - nunca

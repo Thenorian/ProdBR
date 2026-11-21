@@ -1,11 +1,12 @@
 # data/
 
-Local padrão dos dois bancos SQLite (caminho configurável via
-`PUBLIC_DATABASE_URL` / `COMMUNITY_DATABASE_URL` no `.env`):
+Local dos bancos SQLite (caminho configurável no `.env`, ver `.env.example`):
 
-- `public.sqlite3` — produtos, identificadores, regras fiscais e histórico
-  de revisões. **Este é o arquivo distribuído** (ver rotas `/export/*`).
-- `community.sqlite3` — usuários, chaves de API, sessões e fila de
-  moderação. **Nunca é distribuído** — fica só na instância que o hospeda.
+- `prodbr.sqlite3`: produtos, códigos de barras, categorias, NCM, regras
+  fiscais, preços e histórico. É o arquivo público, baixável em
+  `/api/download/prodbr.sqlite3`.
+- `prodbr_community.sqlite3`: contribuidores e tokens. Nunca é distribuído.
+- `public.sqlite3` e `community.sqlite3`: bancos da versão antiga. Se
+  existirem, são copiados uma vez para os novos e depois ficam só de backup.
 
-Nenhum dos dois arquivos `.sqlite3` é versionado no git (ver `.gitignore`).
+Nenhum arquivo `.sqlite3` é versionado no git (ver `.gitignore`).

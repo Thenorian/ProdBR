@@ -57,19 +57,17 @@ O secret `DEPLOY_PATH` (usado pelo deploy antigo, baseado em systemd) não
 Nenhuma delas é obrigatória - sem configurar nada, o app sobe com os
 padrões abaixo (bases SQLite locais dentro do volume, sem anúncio):
 
-| Variável                  | Padrão                                          | Pra que serve                                                        |
-|----------------------------|--------------------------------------------------|-----------------------------------------------------------------------|
-| `PUBLIC_DATABASE_URL`      | `sqlite:////app/data/public.sqlite3` (Dockerfile) | Base pública (produtos/NCM/fiscal/revisões) - a que é exportável.     |
-| `COMMUNITY_DATABASE_URL`   | `sqlite:////app/data/community.sqlite3` (Dockerfile) | Base de comunidade (usuários/chaves/moderação) - nunca exportada. |
-| `MAX_PAGE_SIZE`            | `10`                                              | Limite de itens por página em buscas/listagens.                      |
-| `RATE_LIMIT_READ`          | `60/minute`                                       | Limite de requisições de leitura por IP.                              |
-| `RATE_LIMIT_WRITE`         | `10/minute`                                       | Limite de requisições de escrita por IP.                              |
-| `AUTO_APPROVE_REPUTATION`  | `20`                                              | Reputação mínima pra uma contribuição ser aplicada direto.            |
-| `REPUTATION_PER_CREATE`    | `3`                                               | Reputação ganha ao criar algo (aplicado ou aprovado).                 |
-| `REPUTATION_PER_UPDATE`    | `1`                                               | Reputação ganha ao editar algo.                                       |
-| `REPUTATION_PENALTY_REJECT`| `2`                                               | Reputação perdida quando uma contribuição é rejeitada.                |
-| `SESSION_TTL_HOURS`        | `336` (14 dias)                                   | Validade do token de sessão (login via usuário/senha).                |
-| `ADS_SNIPPET`              | *(vazio = sem anúncio)*                           | HTML/JS do provedor de anúncios da sua instância (ex: AdSense).       |
+| Variável            | Padrão (Dockerfile)                       | Pra que serve                                                  |
+|---------------------|-------------------------------------------|----------------------------------------------------------------|
+| `DB_PATH`           | `/app/data/prodbr.sqlite3`                | Banco público (produtos, NCM, fiscal, histórico).              |
+| `COMMUNITY_DB_PATH` | `/app/data/prodbr_community.sqlite3`      | Contribuidores e tokens. Nunca é baixado pelo público.         |
+| `LEGACY_PUBLIC_DB_PATH` / `LEGACY_COMMUNITY_DB_PATH` | `/app/data/public.sqlite3` / `community.sqlite3` | Bancos da versão antiga, copiados uma vez para os novos. |
+| `SITE_URL`          | *(vazio = lido do acesso)*                | Endereço público usado no sitemap.                             |
+| `ADS_SNIPPET`       | *(vazio = sem anúncio)*                   | HTML/JS do provedor de anúncios (ex: AdSense).                 |
+
+Variáveis da versão antiga (`PUBLIC_DATABASE_URL`, `RATE_LIMIT_*`,
+`REPUTATION_*`, `SESSION_TTL_HOURS` etc.) não são mais usadas e podem
+ser removidas do `~/prodbr.env`.
 
 Pra customizar alguma, crie `~/prodbr.env` no servidor (usuário
 `deploy`), no formato `VARIAVEL=valor` (uma por linha, sem aspas/export -
