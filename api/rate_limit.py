@@ -16,14 +16,21 @@ request_times_by_key = defaultdict(deque)
 
 def client_ip(request):
     """
-    Em produção a API fica atrás do nginx, que manda o IP real no X-Real-IP.
-    Requisição de 127.0.0.1 sem esse cabeçalho é o próprio site do ProdBR montando uma página.
+    Em produção o caminho é Cloudflare -> nginx -> app. O IP de quem chegou no nginx é do
+    Cloudflare (o mesmo para muita gente), então vale o IP real que o Cloudflare manda no
+    CF-Connecting-IP; sem Cloudflare, o X-Real-IP do nginx; sem os dois, a conexão direta.
     """
-    return request.headers.get("x-real-ip") or (request.client.host if request.client else "unknown")
+    return (
+        request.headers.get("cf-connecting-ip")
+        or request.headers.get("x-real-ip")
+        or (request.client.host if request.client else "unknown")
+    )
 
 
 def is_internal_request(request):
-    return "x-real-ip" not in request.headers and request.client is not None and request.client.host == "127.0.0.1"
+    """Requisição de 127.0.0.1 sem cabeçalho de proxy é o próprio site do ProdBR montando uma página."""
+    came_through_proxy = "x-real-ip" in request.headers or "cf-connecting-ip" in request.headers
+    return not came_through_proxy and request.client is not None and request.client.host == "127.0.0.1"
 
 
 def check_limit(request, group, limit, window_in_seconds):

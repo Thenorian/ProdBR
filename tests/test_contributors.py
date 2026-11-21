@@ -32,3 +32,11 @@ def test_download_da_base_publica(client):
     response = client.get("/download/prodbr.sqlite3")
     assert response.status_code == 200
     assert response.content.startswith(b"SQLite format 3")
+
+
+def test_limite_separa_pessoas_atras_do_cloudflare(client):
+    same_cloudflare_ip = {"x-real-ip": "172.70.0.1"}
+    for number in range(5):
+        client.post("/contributors", json={"username": f"a{number}xx"}, headers={**same_cloudflare_ip, "cf-connecting-ip": "200.1.1.1"})
+    other_person = client.post("/contributors", json={"username": "outra_pessoa"}, headers={**same_cloudflare_ip, "cf-connecting-ip": "200.2.2.2"})
+    assert other_person.status_code == 201
