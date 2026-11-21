@@ -7,6 +7,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY scripts ./scripts
+COPY database ./database
+COPY docs ./docs
 
 VOLUME ["/app/data"]
 ENV PUBLIC_DATABASE_URL=sqlite:////app/data/public.sqlite3

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -11,9 +12,28 @@ from app.config import settings
 from app.database import CommunityBase, PublicBase, community_engine, public_engine
 from app.rate_limit import limiter
 from app.routes import auth, export, fiscal, geo, moderation, ncm, products, revisions, stats, users
+from database.database import Database
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
+
+DATABASE_SQL = PROJECT_ROOT / "docs" / "database.sql"
+
+
+def migrate_database():
+    """Deixa o banco igual ao docs/database.sql antes de atender qualquer requisição."""
+    ok, result = Database().migrate(str(DATABASE_SQL))
+    if not ok:
+        raise SystemExit(f"[DB] Migração falhou: {result}")
+
+    for change in result:
+        print(f"[DB] {change}")
+
+
+# Durante a reescrita os dois bancos convivem: o SQLite antigo (SQLAlchemy) e o
+# novo (database/). O novo só é migrado quando o .env tiver DB_HOST.
+if os.getenv("DB_HOST"):
+    migrate_database()
 
 PublicBase.metadata.create_all(bind=public_engine)
 CommunityBase.metadata.create_all(bind=community_engine)
