@@ -1,7 +1,10 @@
--- Schema completo e atual do ProdBR (MySQL/MariaDB).
+-- Schema completo e atual do banco novo do ProdBR (SQLite).
 -- Roda inteiro a cada início do app pelo Database().migrate(): cria o que falta
 -- (tabela ou coluna nova) e nunca altera tipo, renomeia ou remove coluna.
 -- Regras para editar este arquivo estão no docstring de Database.migrate().
+--
+-- No SQLite não existe "ON UPDATE CURRENT_TIMESTAMP": quem atualiza a linha
+-- grava o updated_at junto.
 
 
 -- Cada vez que a tabela oficial de NCM do Siscomex (Portal Único) é importada.
@@ -11,7 +14,7 @@ CREATE TABLE IF NOT EXISTS ncm_imports (
     legal_act VARCHAR(150) NOT NULL,
     version_label VARCHAR(100) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
-    total_codes INT NOT NULL,
+    total_codes INTEGER NOT NULL,
     imported_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -25,7 +28,7 @@ CREATE TABLE IF NOT EXISTS ncm (
     code VARCHAR(8) NOT NULL PRIMARY KEY,
     formatted_code VARCHAR(10) NOT NULL,
     level VARCHAR(20) NOT NULL,
-    parent_code VARCHAR(8) NULL,
+    parent_code VARCHAR(8) NULL REFERENCES ncm (code),
     description VARCHAR(1500) NOT NULL,
     full_description TEXT NOT NULL,
     valid_from DATE NOT NULL,
@@ -33,15 +36,14 @@ CREATE TABLE IF NOT EXISTS ncm (
     act_type VARCHAR(30) NOT NULL,
     act_number VARCHAR(10) NOT NULL,
     act_year VARCHAR(4) NOT NULL,
-    in_force BOOLEAN NOT NULL DEFAULT TRUE,
-    import_id CHAR(36) NOT NULL,
+    in_force BOOLEAN NOT NULL DEFAULT 1,
+    import_id CHAR(36) NOT NULL REFERENCES ncm_imports (id),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    KEY idx_ncm_parent_code (parent_code),
-    KEY idx_ncm_level (level),
-    CONSTRAINT fk_ncm_parent FOREIGN KEY (parent_code) REFERENCES ncm (code),
-    CONSTRAINT fk_ncm_import FOREIGN KEY (import_id) REFERENCES ncm_imports (id)
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_ncm_parent_code ON ncm (parent_code);
+CREATE INDEX IF NOT EXISTS idx_ncm_level ON ncm (level);
 
 
 -- Categoria de produto, em árvore (parent_id). Ex: Bebidas > Cervejas > Puro malte.
@@ -50,11 +52,10 @@ CREATE TABLE IF NOT EXISTS ncm (
 CREATE TABLE IF NOT EXISTS categories (
     id CHAR(36) NOT NULL PRIMARY KEY,
     name VARCHAR(150) NOT NULL,
-    parent_id CHAR(36) NULL,
-    ncm_code VARCHAR(8) NULL,
+    parent_id CHAR(36) NULL REFERENCES categories (id),
+    ncm_code VARCHAR(8) NULL REFERENCES ncm (code),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    KEY idx_categories_parent_id (parent_id),
-    CONSTRAINT fk_categories_parent FOREIGN KEY (parent_id) REFERENCES categories (id),
-    CONSTRAINT fk_categories_ncm FOREIGN KEY (ncm_code) REFERENCES ncm (code)
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories (parent_id);

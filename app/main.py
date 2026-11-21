@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -30,10 +29,7 @@ def migrate_database():
         print(f"[DB] {change}")
 
 
-# Durante a reescrita os dois bancos convivem: o SQLite antigo (SQLAlchemy) e o
-# novo (database/). O novo só é migrado quando o .env tiver DB_HOST.
-if os.getenv("DB_HOST"):
-    migrate_database()
+migrate_database()
 
 PublicBase.metadata.create_all(bind=public_engine)
 CommunityBase.metadata.create_all(bind=community_engine)

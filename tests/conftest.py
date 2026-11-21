@@ -7,6 +7,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ["PUBLIC_DATABASE_URL"] = "sqlite:///./test_public.sqlite3"
 os.environ["COMMUNITY_DATABASE_URL"] = "sqlite:///./test_community.sqlite3"
+os.environ["DB_PATH"] = "./test_prodbr.sqlite3"
 # Limites de taxa altos o bastante para nao interferir nos testes.
 os.environ["RATE_LIMIT_READ"] = "1000/minute"
 os.environ["RATE_LIMIT_WRITE"] = "1000/minute"

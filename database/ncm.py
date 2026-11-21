@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from database.database import Database
@@ -39,11 +40,14 @@ class NcmDB(Database):
         if not ok:
             return False, f"Erro ao registrar a importação: {error}"
 
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
         rows = []
         for ncm in table["codes"]:
             row = dict(ncm)
             row["in_force"] = True
             row["import_id"] = import_id
+            row["updated_at"] = now
             rows.append(row)
 
         ok, saved = self.insert_or_update_many("ncm", rows, key_columns=["code"])

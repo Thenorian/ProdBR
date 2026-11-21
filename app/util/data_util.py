@@ -159,9 +159,9 @@ class DataUtil:
         return " ".join(text.split())
 
     def _read_date(self, text):
-        """Converte "31/12/2026" em date."""
+        """Converte "31/12/2026" em "2026-12-31", o formato de data que o banco entende e ordena certo."""
         try:
-            return True, datetime.strptime(str(text).strip(), "%d/%m/%Y").date()
+            return True, datetime.strptime(str(text).strip(), "%d/%m/%Y").date().isoformat()
         except ValueError:
             return False, None
 

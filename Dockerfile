@@ -13,6 +13,7 @@ COPY docs ./docs
 VOLUME ["/app/data"]
 ENV PUBLIC_DATABASE_URL=sqlite:////app/data/public.sqlite3
 ENV COMMUNITY_DATABASE_URL=sqlite:////app/data/community.sqlite3
+ENV DB_PATH=/app/data/prodbr.sqlite3
 
 EXPOSE 8000
 

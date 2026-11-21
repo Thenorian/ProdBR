@@ -1,31 +1,27 @@
 """
-Classe mãe de todas as classes de banco do sistema (DataUser, DataProduct...).
+Classe mãe de todas as classes de banco do sistema (NcmDB, ProductDB...).
 
-Para trocar de banco, troque só o import abaixo:
-    MySQL ou MariaDB:  from database.adapter.MySQL import MySQL as Data
-    PostgreSQL:        from database.adapter.PostgreSQL import PostgreSQL as Data
+O ProdBR usa SQLite: o banco é um arquivo só, que pode ser baixado inteiro
+pelo público. Mesma estrutura do MyMenu; para trocar de banco no futuro,
+basta copiar o adapter do MyMenu (MySQL.py ou PostgreSQL.py) e trocar o import abaixo.
 
 Exemplo de classe filha:
 
-    class DataProduct(Database):
-
-        def list_active(self, page=1):
-            return self.select("products", where={"active": True}, order_by="name", limit=20, offset=(page - 1) * 20)
+    class ProductDB(Database):
 
         def get(self, product_id):
             return self.select("products", where={"id": product_id}, fetch="one")
 
-        def create(self, name, price):
-            return self.insert("products", {"name": name, "price": price})
+        def create(self, name):
+            return self.insert("products", {"id": str(uuid4()), "name": name})
 
-Métodos disponíveis com self. (ver docstring de cada um em database/adapter/):
+Métodos disponíveis com self. (ver docstring de cada um em database/adapter/SQLite.py):
     select, count, exists, insert, insert_or_update_many, update, delete,
     create_database, create_table, add_column, table_exists, column_exists, config
 E aqui mesmo: migrate, run_sql_file
 
-Variáveis de ambiente:
-    obrigatórias: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
-    opcionais:    DB_PORT, DB_TIME_ZONE, DB_CHARSET, DB_COLLATION
+Variável de ambiente (opcional):
+    DB_PATH  caminho do arquivo do banco. Padrão: data/prodbr.sqlite3
 """
 import os
 import re
@@ -34,7 +30,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from database.adapter.MySQL import MySQL as Data
+from database.adapter.SQLite import SQLite as Data
+
+DEFAULT_DATABASE_PATH = "data/prodbr.sqlite3"
 
 # Palavras que começam uma linha de CREATE TABLE que não é coluna (chaves, índices, regras).
 NOT_A_COLUMN = ("PRIMARY", "KEY", "INDEX", "UNIQUE", "CONSTRAINT", "FOREIGN", "CHECK", "FULLTEXT", "SPATIAL")
@@ -48,26 +46,8 @@ CREATE_TABLE = re.compile(
 class Database(Data):
 
     def __init__(self):
-        # Os dados de acesso vêm do .env, por isso Database() não recebe argumentos.
-        missing = [name for name in ("DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME") if not os.getenv(name)]
-        if missing:
-            raise RuntimeError(f"Variáveis de ambiente não definidas: {', '.join(missing)}")
-
-        super().__init__(
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT") or Data.DEFAULT_PORT,
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            database=os.getenv("DB_NAME"),
-        )
-
-        ok, error = self.config(
-            time_zone=os.getenv("DB_TIME_ZONE") or None,
-            charset=os.getenv("DB_CHARSET") or None,
-            collation=os.getenv("DB_COLLATION") or None,
-        )
-        if not ok:
-            raise RuntimeError(error)
+        # O caminho do banco vem do .env, por isso Database() não recebe argumentos.
+        super().__init__(path=os.getenv("DB_PATH") or DEFAULT_DATABASE_PATH)
 
     def migrate(self, path):
         """
@@ -85,7 +65,8 @@ class Database(Data):
         Regras do database.sql, pois ele roda inteiro a cada início:
             - Sempre CREATE TABLE IF NOT EXISTS.
             - Chaves, índices e FKs dentro do CREATE TABLE (só são criados junto com a tabela).
-            - Dados iniciais com INSERT IGNORE (MySQL) ou ON CONFLICT DO NOTHING (Postgres).
+            - Índices com CREATE INDEX IF NOT EXISTS, fora do CREATE TABLE (o SQLite não aceita KEY dentro).
+            - Dados iniciais com INSERT OR IGNORE.
             - Coluna nova NOT NULL precisa de DEFAULT.
             - Mudar tipo, renomear ou remover coluna não é automático (risco de perder dados).
         """
