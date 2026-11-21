@@ -158,7 +158,7 @@ def build_sitemap(address):
 
 def site_address(request):
     """Endereço público do site (ex: https://prodbr.com.br), lido do próprio acesso."""
-    return os.getenv("SITE_URL") or str(request.base_url).rstrip("/")
+    return os.getenv("PUBLIC_URL") or str(request.base_url).rstrip("/")
 
 
 # Endereços da versão antiga, para links salvos e o Google não caírem em página inexistente.

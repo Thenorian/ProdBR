@@ -62,7 +62,7 @@ padrões abaixo (bases SQLite locais dentro do volume, sem anúncio):
 | `DB_PATH`           | `/app/data/prodbr.sqlite3`                | Banco público (produtos, NCM, fiscal, histórico).              |
 | `COMMUNITY_DB_PATH` | `/app/data/prodbr_community.sqlite3`      | Contribuidores e tokens. Nunca é baixado pelo público.         |
 | `LEGACY_PUBLIC_DB_PATH` / `LEGACY_COMMUNITY_DB_PATH` | `/app/data/public.sqlite3` / `community.sqlite3` | Bancos da versão antiga, copiados uma vez para os novos. |
-| `SITE_URL`          | *(vazio = lido do acesso)*                | Endereço público usado no sitemap.                             |
+| `PUBLIC_URL`          | *(vazio = lido do acesso)*                | Endereço público usado no sitemap.                             |
 | `ADS_SNIPPET`       | *(vazio = sem anúncio)*                   | HTML/JS do provedor de anúncios (ex: AdSense).                 |
 
 Variáveis da versão antiga (`PUBLIC_DATABASE_URL`, `RATE_LIMIT_*`,

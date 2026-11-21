@@ -40,16 +40,29 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     steps:
       - name: Atualiza o container no servidor via SSH
         uses: appleboy/ssh-action@v1.0.3
+        # Login no GHCR no servidor com o token DESTE repo antes do pull. Sem
+        # isso o pull usava a credencial que sobrou do ultimo `docker login`
+        # feito no servidor - o deploy do Simple ERP faz login com o token
+        # dele (so vale pro pacote dele e expira) e sobrescreve - e dava
+        # "error from registry: denied" (2026-10-07). Container antigo
+        # continuava no ar porque o pull roda antes do stop.
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         with:
+          envs: GHCR_TOKEN,GHCR_USER
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
             set -e
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             docker pull ghcr.io/thenorian/prodbr:latest
 
             docker stop prodbr 2>/dev/null || true

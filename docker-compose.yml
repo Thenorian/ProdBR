@@ -1,0 +1,12 @@
+# ProdBR local em um comando:  docker compose up -d   ->  http://localhost:8000
+# Sobe com paises/UFs/tributos do Mercosul e, no primeiro minuto, baixa
+# sozinho a tabela NCM e o IPI/II oficiais (depois atualiza todo dia).
+# Os dados ficam em ./data (SQLite) - e so copiar a pasta pra fazer backup.
+services:
+  prodbr:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
