@@ -31,3 +31,9 @@ def create_contributor(payload: NewContributorInput):
 def create_another_token(contributor=Depends(require_contributor)):
     """Gera mais um token para o mesmo usuário (ex: um para cada ERP). Os antigos continuam valendo."""
     return result_or_error(ContributorDB().create_new_token(contributor))
+
+
+@router.get("/contributors/me")
+def who_am_i(contributor=Depends(require_contributor)):
+    """Confere se o token vale e diz de quem ele é."""
+    return {"username": contributor["username"]}

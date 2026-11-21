@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Entrar · ProdBR{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+  <div class="narrow">
+    <h1 class="page-title">Entrar</h1>
+
+    <section class="panel" data-signed-in hidden>
+      <p>Você está como <strong data-current-username></strong>.</p>
+      <button class="button" type="button" data-sign-out>Sair</button>
+    </section>
+
+    <div data-signed-out>
+      <section class="panel">
+        <h2 class="panel__title">Novo por aqui</h2>
+        <p class="muted">Escolha um nome. Ele aparece no histórico das suas edições.</p>
+        <form class="form" data-create-contributor>
+          <label class="field">
+            <span class="field__label">Nome de usuário</span>
+            <input class="field__input" name="username" required minlength="3" maxlength="40"
+                   pattern="[a-zA-Z0-9_.\-]+" autocomplete="username">
+          </label>
+          <button class="button button--primary" type="submit">Criar meu token</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel__title">Já tenho um token</h2>
+        <form class="form" data-use-token>
+          <label class="field">
+            <span class="field__label">Token</span>
+            <input class="field__input" name="token" required autocomplete="off">
+          </label>
+          <button class="button" type="submit">Entrar</button>
+        </form>
+      </section>
+    </div>
+
+    <section class="panel panel--highlight" data-new-token hidden>
+      <h2 class="panel__title">Guarde o seu token</h2>
+      <p>Ele aparece só agora. Use no ERP pelo cabeçalho <span class="code">X-API-Key</span>.</p>
+      <pre class="code-block" data-token-value></pre>
+      <button class="button" type="button" data-copy-token>Copiar</button>
+    </section>
+
+    <p class="form__message" data-form-message role="status"></p>
+  </div>
+{% endblock %}
+{% block scripts %}<script src="/static/sign_in.js"></script>{% endblock %}

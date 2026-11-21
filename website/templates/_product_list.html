@@ -1,0 +1,14 @@
+{# Lista de produtos usada na home e na busca. No celular cada linha vira um bloco. #}
+<ul class="product-list">
+  {% for product in products %}
+    <li class="product-list__item">
+      <a class="product-list__name" href="/produto/{{ product.id }}">{{ product.name }}</a>
+      <div class="product-list__details">
+        {% if product.brand %}<span>{{ product.brand }}</span>{% endif %}
+        {% if product.barcodes %}<span class="code">{{ product.barcodes[0] }}</span>{% endif %}
+        {% if product.ncm %}<span>NCM <span class="code">{{ product.ncm.formatted_code }}</span></span>{% endif %}
+        {% if product.category %}<span>{{ product.category.path }}</span>{% endif %}
+      </div>
+    </li>
+  {% endfor %}
+</ul>

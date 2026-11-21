@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}ProdBR · produtos brasileiros com código de barras, NCM e fiscal{% endblock %}
+{% block content %}
+  <section class="hero">
+    <h1 class="hero__title">Prod<span class="brand__accent">BR</span></h1>
+    <p class="hero__subtitle">A base aberta de produtos brasileiros.</p>
+
+    <form class="hero-search" action="/busca" method="get" role="search">
+      <input class="hero-search__input" type="search" name="q" placeholder="Nome, código de barras ou NCM"
+             aria-label="Buscar produto" autofocus>
+      <button class="button button--primary" type="submit">Buscar</button>
+    </form>
+
+    <p class="hero__numbers">{{ product_total }} produtos · {{ change_total }} edições</p>
+  </section>
+
+  <div class="home-columns">
+    <section class="section">
+      <h2 class="section__title">Atualizados agora</h2>
+      {% if recent_products %}
+        {% set products = recent_products %}
+        {% include "_product_list.html" %}
+      {% else %}
+        <p class="empty">Nenhum produto ainda. <a href="/produto/novo">Cadastre o primeiro</a>.</p>
+      {% endif %}
+    </section>
+
+    <section class="section">
+      <h2 class="section__title">Últimas edições</h2>
+      {% if recent_changes %}
+        {% set revisions = recent_changes %}
+        {% set show_product = true %}
+        {% include "_revision_list.html" %}
+      {% else %}
+        <p class="empty">Nenhuma edição ainda.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="section api-callout">
+    <h2 class="section__title">Use no seu ERP</h2>
+    <p>Mande o código de barras e receba o cadastro completo, sem chave.</p>
+    <pre class="code-block">GET /api/barcode/7891000100103?uf=SP&amp;tax_regime=simples_nacional</pre>
+    <a class="button" href="/api/docs">Ver a documentação da API</a>
+  </section>
+{% endblock %}

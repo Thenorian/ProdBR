@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ "Editar " ~ product.name if product else "Cadastrar produto" }} · ProdBR{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+  {# Na edição, o NCM, CEST e origem herdados da categoria não aparecem como se fossem do produto. #}
+  {% set inherited = product.fiscal_data_from_category if product else [] %}
+  {% set own_ncm = product.ncm.code if product and product.ncm and "ncm_code" not in inherited else "" %}
+  {% set own_cest = product.cest if product and product.cest and "cest" not in inherited else "" %}
+  {% set own_origin = product.origin if product and product.origin is not none and "origin" not in inherited else "" %}
+
+  <h1 class="page-title">{{ "Editar produto" if product else "Cadastrar produto" }}</h1>
+
+  <div class="notice notice--warning" data-needs-token hidden>
+    Para salvar, você precisa de um token. <a href="/entrar">Entrar</a>
+  </div>
+
+  <form class="form" data-product-form data-product-id="{{ product.id if product else '' }}">
+    <fieldset class="form__group">
+      <legend class="form__legend">Produto</legend>
+      <label class="field">
+        <span class="field__label">Nome *</span>
+        <input class="field__input" name="name" required maxlength="255" value="{{ product.name if product else '' }}">
+      </label>
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Marca</span>
+          <input class="field__input" name="brand" maxlength="120" value="{{ product.brand or '' if product else '' }}">
+        </label>
+        <label class="field">
+          <span class="field__label">Fabricante</span>
+          <input class="field__input" name="manufacturer" maxlength="120" value="{{ product.manufacturer or '' if product else '' }}">
+        </label>
+      </div>
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Códigos de barras</span>
+          <input class="field__input" name="barcodes" inputmode="numeric" placeholder="Separe por vírgula"
+                 value="{{ product.barcodes | join(', ') if product else '' }}">
+        </label>
+        <label class="field">
+          <span class="field__label">Código do fabricante</span>
+          <input class="field__input" name="manufacturer_code" maxlength="60" value="{{ product.manufacturer_code or '' if product else '' }}">
+        </label>
+      </div>
+      <label class="field">
+        <span class="field__label">Categoria</span>
+        <input class="field__input" name="category" maxlength="600" placeholder="Ex: Bebidas > Cervejas"
+               value="{{ product.category.path if product and product.category else '' }}">
+      </label>
+      <label class="field">
+        <span class="field__label">Descrição</span>
+        <textarea class="field__input" name="description" rows="3" maxlength="2000">{{ product.description or '' if product else '' }}</textarea>
+      </label>
+    </fieldset>
+
+    <fieldset class="form__group">
+      <legend class="form__legend">Fiscal</legend>
+      <p class="muted small">Em branco, usa o da categoria.</p>
+      <div class="form__row form__row--three">
+        <label class="field">
+          <span class="field__label">NCM</span>
+          <input class="field__input" name="ncm" inputmode="numeric" maxlength="10" placeholder="8 dígitos" value="{{ own_ncm }}">
+        </label>
+        <label class="field">
+          <span class="field__label">CEST</span>
+          <input class="field__input" name="cest" inputmode="numeric" maxlength="9" placeholder="7 dígitos" value="{{ own_cest }}">
+        </label>
+        <label class="field">
+          <span class="field__label">Origem</span>
+          <select class="field__input" name="origin">
+            <option value="">Da categoria</option>
+            {% for code in range(9) %}
+              <option value="{{ code }}" {{ "selected" if own_origin != "" and own_origin == code }}>{{ code }} · {{ code | origem }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Unidade</span>
+          <input class="field__input" name="commercial_unit" maxlength="10" value="{{ product.commercial_unit if product else 'UN' }}">
+        </label>
+        <label class="field">
+          <span class="field__label">Fonte da informação</span>
+          <input class="field__input" name="source" maxlength="255" placeholder="Ex: embalagem, site do fabricante"
+                 value="{{ product.source or '' if product else '' }}">
+        </label>
+      </div>
+    </fieldset>
+
+    <label class="field">
+      <span class="field__label">Motivo da alteração *</span>
+      <input class="field__input" name="reason" required minlength="3" maxlength="300"
+             placeholder="{{ 'Ex: corrige o NCM' if product else 'Ex: cadastro pela embalagem' }}">
+    </label>
+
+    <p class="form__message" data-form-message role="status"></p>
+
+    <div class="form__actions">
+      <button class="button button--primary" type="submit">Salvar</button>
+      <a class="button button--quiet" href="{{ '/produto/' ~ product.id if product else '/' }}">Cancelar</a>
+    </div>
+  </form>
+{% endblock %}
+{% block scripts %}<script src="/static/product_form.js"></script>{% endblock %}

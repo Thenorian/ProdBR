@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ q or "Busca" }} · ProdBR{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+  <h1 class="page-title">{% if q %}Resultados para “{{ q }}”{% else %}Buscar produtos{% endif %}</h1>
+
+  {% if q %}
+    <p class="muted">{{ results.total }} produto{{ "s" if results.total != 1 }}</p>
+    {% if results.items %}
+      {% set products = results["items"] %}
+      {% include "_product_list.html" %}
+    {% else %}
+      <p class="empty">Nada encontrado. <a href="/produto/novo">Cadastrar este produto</a></p>
+    {% endif %}
+
+    {% if page_count > 1 %}
+      <nav class="pagination" aria-label="Páginas">
+        {% if pagina > 1 %}<a class="button" href="/busca?q={{ q | urlencode }}&pagina={{ pagina - 1 }}">Anterior</a>{% endif %}
+        <span class="pagination__current">Página {{ pagina }} de {{ page_count }}</span>
+        {% if pagina < page_count %}<a class="button" href="/busca?q={{ q | urlencode }}&pagina={{ pagina + 1 }}">Próxima</a>{% endif %}
+      </nav>
+    {% endif %}
+  {% endif %}
+{% endblock %}

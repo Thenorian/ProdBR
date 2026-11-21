@@ -1,0 +1,22 @@
+{# Histórico agrupado: uma linha por alteração, mesmo que ela tenha mexido em vários campos. #}
+<ul class="revision-list">
+  {% for change in revisions | agrupar %}
+    <li class="revision-list__item">
+      <span class="revision-list__who">{{ change.contributor or "importação" }}</span>
+      {{ change.action | acao }}
+      {% if show_product %}
+        {% if change.action != "create" %}{{ change.changes | map(attribute="field") | map("campo") | join(", ") }} em{% endif %}
+        {% if change.product_name %}<a href="/produto/{{ change.entity_id }}">{{ change.product_name }}</a>{% else %}um item{% endif %}
+      {% elif change.action == "create" %}
+        o cadastro
+      {% else %}
+        <ul class="revision-list__fields">
+          {% for revision in change.changes %}
+            <li><strong>{{ revision.field | campo }}</strong>: {{ (revision.new_value or "vazio") | truncate(80) }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      <span class="revision-list__meta">{{ change.created_at | data_br }} · {{ change.reason }}</span>
+    </li>
+  {% endfor %}
+</ul>

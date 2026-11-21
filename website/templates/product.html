@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }}{% if product.barcodes %} · {{ product.barcodes[0] }}{% endif %} · ProdBR{% endblock %}
+{% block description %}{{ product.name }}{% if product.brand %}, {{ product.brand }}{% endif %}{% if product.ncm %}. NCM {{ product.ncm.formatted_code }}{% endif %}{% if product.barcodes %}. Código de barras {{ product.barcodes | join(", ") }}{% endif %}.{% endblock %}
+{% block head %}
+  {% set structured_data = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "brand": product.brand,
+    "manufacturer": product.manufacturer,
+    "mpn": product.manufacturer_code,
+    "gtin": product.barcodes[0] if product.barcodes else None,
+    "description": product.description,
+    "category": product.category.path if product.category else None,
+  } %}
+  <script type="application/ld+json">{{ structured_data | tojson }}</script>
+{% endblock %}
+{% block content %}
+  <nav class="breadcrumb" aria-label="Categoria">
+    <a href="/">Início</a>
+    {% if product.category %}<span>{{ product.category.path }}</span>{% endif %}
+  </nav>
+
+  <div class="article-header">
+    <h1 class="page-title">{{ product.name }}</h1>
+    <a class="button" href="/produto/{{ product.id }}/editar">Editar</a>
+  </div>
+
+  <div class="article">
+    <aside class="infobox" aria-label="Dados do produto">
+      <dl class="infobox__list">
+        <dt>Código de barras</dt>
+        <dd>
+          {% for barcode in product.barcodes %}<span class="code">{{ barcode }}</span>{% if not loop.last %}<br>{% endif %}
+          {% else %}<span class="muted">Não informado</span>{% endfor %}
+        </dd>
+
+        <dt>NCM</dt>
+        <dd>
+          {% if product.ncm %}
+            <span class="code">{{ product.ncm.formatted_code }}</span>
+            {% if "ncm_code" in product.fiscal_data_from_category %}<span class="tag">da categoria</span>{% endif %}
+            {% if not product.ncm.in_official_table %}<span class="tag tag--warning">fora da tabela oficial</span>{% endif %}
+          {% else %}<span class="muted">Não informado</span>{% endif %}
+        </dd>
+
+        {% if product.cest %}
+          <dt>CEST</dt>
+          <dd><span class="code">{{ product.cest }}</span>{% if "cest" in product.fiscal_data_from_category %} <span class="tag">da categoria</span>{% endif %}</dd>
+        {% endif %}
+
+        {% if product.brand %}<dt>Marca</dt><dd>{{ product.brand }}</dd>{% endif %}
+        {% if product.manufacturer %}<dt>Fabricante</dt><dd>{{ product.manufacturer }}</dd>{% endif %}
+        {% if product.manufacturer_code %}<dt>Código do fabricante</dt><dd><span class="code">{{ product.manufacturer_code }}</span></dd>{% endif %}
+        {% if product.category %}<dt>Categoria</dt><dd>{{ product.category.path }}</dd>{% endif %}
+        <dt>Unidade</dt><dd>{{ product.commercial_unit }}</dd>
+        {% if product.origin is not none %}<dt>Origem</dt><dd>{{ product.origin }} · {{ product.origin | origem }}</dd>{% endif %}
+
+        <dt>Preço médio</dt>
+        <dd>
+          {% if product.price %}
+            {{ product.price.median | reais }}
+            <span class="muted">({{ product.price.reports }} informe{{ "s" if product.price.reports != 1 }} em 12 meses)</span>
+          {% else %}<span class="muted">Sem informe</span>{% endif %}
+        </dd>
+      </dl>
+      <a class="infobox__api" href="/api/products/{{ product.id }}">Ver na API (JSON)</a>
+    </aside>
+
+    <div class="article__body">
+      {% if product.description %}
+        <section class="section">
+          <h2 class="section__title">Descrição</h2>
+          <p>{{ product.description }}</p>
+        </section>
+      {% endif %}
+
+      {% if product.ncm and product.ncm.full_description %}
+        <section class="section">
+          <h2 class="section__title">Classificação fiscal</h2>
+          <p>{{ product.ncm.full_description }}</p>
+        </section>
+      {% endif %}
+
+      <section class="section">
+        <h2 class="section__title">Tributação de referência</h2>
+        <form class="filters" method="get">
+          <label class="field field--inline">
+            <span class="field__label">UF</span>
+            <select class="field__input" name="uf">
+              <option value="">Todas</option>
+              {% for uf in ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"] %}
+                <option value="{{ uf }}" {{ "selected" if uf == selected_uf }}>{{ uf }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="field field--inline">
+            <span class="field__label">Regime</span>
+            <select class="field__input" name="regime">
+              <option value="">Todos</option>
+              {% for code in ["simples_nacional", "lucro_presumido", "lucro_real"] %}
+                <option value="{{ code }}" {{ "selected" if code == selected_regime }}>{{ code | regime }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button class="button" type="submit">Filtrar</button>
+        </form>
+
+        {% if product.fiscal_rules %}
+          <table class="data-table">
+            <thead>
+              <tr><th>UF</th><th>Regime</th><th>ICMS</th><th>IPI</th><th>PIS</th><th>COFINS</th><th>CBS</th><th>IBS</th><th>Fonte</th></tr>
+            </thead>
+            <tbody>
+              {% for rule in product.fiscal_rules %}
+                <tr>
+                  <td data-label="UF">{{ rule.uf or "Todas" }}</td>
+                  <td data-label="Regime">{{ rule.tax_regime | regime }}</td>
+                  <td data-label="ICMS">{{ rule.icms_rate | porcento }}</td>
+                  <td data-label="IPI">{{ rule.ipi_rate | porcento }}</td>
+                  <td data-label="PIS">{{ rule.pis_rate | porcento }}</td>
+                  <td data-label="COFINS">{{ rule.cofins_rate | porcento }}</td>
+                  <td data-label="CBS">{{ rule.cbs_rate | porcento }}</td>
+                  <td data-label="IBS">{{ rule.ibs_rate | porcento }}</td>
+                  <td data-label="Fonte">{{ rule.source }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p class="muted small">Valores de referência. Confira com a contabilidade antes de emitir nota.</p>
+        {% elif product.ncm %}
+          <p class="empty">Nenhuma regra fiscal cadastrada para este NCM.</p>
+        {% else %}
+          <p class="empty">Informe o NCM para ver a tributação.</p>
+        {% endif %}
+      </section>
+
+      <section class="section">
+        <h2 class="section__title">Histórico</h2>
+        {% if revisions %}
+          {% set show_product = false %}
+          {% include "_revision_list.html" %}
+        {% else %}
+          <p class="empty">Sem alterações registradas.</p>
+        {% endif %}
+        {% if product.source %}<p class="muted small">Fonte do cadastro: {{ product.source }}</p>{% endif %}
+      </section>
+    </div>
+  </div>
+{% endblock %}

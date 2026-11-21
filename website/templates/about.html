@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Sobre · ProdBR{% endblock %}
+{% block content %}
+  <div class="narrow">
+    <h1 class="page-title">Sobre o ProdBR</h1>
+    <p>
+      Uma base aberta de produtos brasileiros, para nenhum sistema precisar cadastrar do zero.
+      Pelo código de barras vêm nome, marca, NCM, categoria, preço médio e tributação de referência.
+    </p>
+    <p>
+      Qualquer pessoa consulta e contribui. Toda alteração fica registrada no histórico, como no Git.
+    </p>
+
+    <section class="section">
+      <h2 class="section__title">API</h2>
+      <p>Consulta livre, sem chave. Para alterar, use o seu token no cabeçalho <span class="code">X-API-Key</span>.</p>
+      <pre class="code-block">GET /api/barcode/{código de barras}
+GET /api/products?ncm=22030000
+GET /api/products?manufacturer=Tramontina
+GET /api/products?manufacturer_code=BPR6ES
+GET /api/categories</pre>
+      <p><a class="button" href="/api/docs">Documentação completa</a></p>
+    </section>
+
+    <section class="section">
+      <h2 class="section__title">Dados abertos</h2>
+      <p>
+        A base inteira pode ser baixada em SQLite, sob a licença
+        <a href="/data-license">ODbL</a>. O código é <a href="/license">AGPLv3</a>.
+      </p>
+      <p><a class="button" href="/api/download/prodbr.sqlite3">Baixar a base</a></p>
+    </section>
+
+    <section class="section">
+      <h2 class="section__title">Quem contribui</h2>
+      {% if ranking %}
+        <table class="data-table">
+          <thead><tr><th>Usuário</th><th>Nível</th><th>Edições</th><th>Desde</th></tr></thead>
+          <tbody>
+            {% for contributor in ranking %}
+              <tr>
+                <td data-label="Usuário"><strong>{{ contributor.username }}</strong></td>
+                <td data-label="Nível">{{ contributor.edit_count | nivel }}</td>
+                <td data-label="Edições">{{ contributor.edit_count }}</td>
+                <td data-label="Desde">{{ contributor.created_at | data_br }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="empty">Ainda ninguém. <a href="/entrar">Seja o primeiro</a>.</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

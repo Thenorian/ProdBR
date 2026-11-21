@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ProdBR{% endblock %}</title>
+  <meta name="description" content="{% block description %}Base aberta de produtos brasileiros: código de barras, NCM, categoria e informações fiscais.{% endblock %}">
+  {% block head %}{% endblock %}
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="brand" href="/">Prod<span class="brand__accent">BR</span></a>
+
+      <form class="header-search" action="/busca" method="get" role="search">
+        <input class="header-search__input" type="search" name="q" value="{{ q or '' }}"
+               placeholder="Nome, código de barras ou NCM" aria-label="Buscar produto">
+      </form>
+
+      <nav class="site-nav" aria-label="Menu principal">
+        <a class="site-nav__link" href="/produto/novo">Cadastrar</a>
+        <a class="site-nav__link" href="/api/docs">API</a>
+        <a class="site-nav__link" href="/sobre">Sobre</a>
+        <a class="site-nav__link site-nav__link--account" href="/entrar" data-account-link>Entrar</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if ads_snippet %}
+    <aside class="ad-slot" aria-label="Publicidade">
+      <span class="ad-slot__label">Publicidade</span>
+      {{ ads_snippet | safe }}
+    </aside>
+  {% endif %}
+
+  <footer class="site-footer">
+    <p>ProdBR, base aberta de produtos brasileiros.</p>
+    <p>
+      Código <a href="/license">AGPLv3</a> · Dados <a href="/data-license">ODbL</a> ·
+      <a href="/api/download/prodbr.sqlite3">Baixar a base</a> ·
+      <a href="https://github.com/Thenorian/ProdBR" rel="noopener">GitHub</a>
+    </p>
+  </footer>
+
+  <script>window.PRODBR_API_URL = {{ public_api_url | tojson }};</script>
+  <script src="/static/site.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
