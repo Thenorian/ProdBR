@@ -75,7 +75,14 @@ mesmo formato de um `.env`). O workflow detecta o arquivo sozinho no
 próximo deploy e passa pro container via `--env-file`. Esse arquivo é só
 local ao servidor - o deploy nunca sobrescreve nem apaga ele.
 
-## 5. Rodar o deploy
+## 5. Backup automático
+
+Todo deploy para o container, faz um `.tar.gz` do volume `prodbr_data`
+inteiro (bancos público e da comunidade) em `~/prodbr_backups/` no servidor
+e só depois sobe a versão nova. Ficam os 10 mais recentes. Para voltar um
+backup: pare o container, apague o conteúdo do volume e extraia o arquivo nele.
+
+## 6. Rodar o deploy
 
 - **Automático:** todo `git push` na `main` dispara o workflow.
 - **Manual ("Re-run job"):** aba **Actions** do GitHub → workflow

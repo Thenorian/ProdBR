@@ -66,6 +66,18 @@ jobs:
             docker pull ghcr.io/thenorian/prodbr:latest
 
             docker stop prodbr 2>/dev/null || true
+
+            # Backup do volume inteiro (bancos público e da comunidade) com o container
+            # parado, antes de qualquer migração da versão nova. Fica em ~/prodbr_backups
+            # no servidor; guarda os 10 mais recentes.
+            mkdir -p "$HOME/prodbr_backups"
+            docker run --rm \
+              -v prodbr_data:/data:ro \
+              -v "$HOME/prodbr_backups":/backup \
+              ghcr.io/thenorian/prodbr:latest \
+              tar czf "/backup/prodbr_data_$(date +%Y%m%d_%H%M%S).tar.gz" -C /data .
+            ls -1t "$HOME"/prodbr_backups/prodbr_data_*.tar.gz | tail -n +11 | xargs -r rm -f --
+
             docker rm prodbr 2>/dev/null || true
 
             # ~/prodbr.env e opcional - so existe se alguem customizou
