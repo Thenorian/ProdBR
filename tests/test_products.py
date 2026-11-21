@@ -169,3 +169,42 @@ def test_trocar_so_a_embalagem_grava_historico(client, auth):
         headers=auth,
     )
     assert response.json()["changed_fields"] == ["barcodes"]
+
+
+def test_resumo_fiscal_junta_icms_da_uf_com_ipi_oficial(client, auth, ncm_table):
+    from database.fiscal import FiscalDB
+    FiscalDB().apply_official_rates({
+        "ipi_by_ncm": {"22030000": 3.9}, "ipi_exceptions_by_ncm": {}, "ii_by_ncm": {"22030000": 18.0},
+        "source": "Oficial: TIPI (teste) + TEC (teste)",
+    })
+    client.post("/fiscal-rules", json={"ncm": "22030000", "uf": "SP", "icms_rate": 18, "valid_from": "2026-01-01",
+                                       "source": "RICMS-SP", "reason": "teste"}, headers=auth)
+    client.post("/fiscal-rules", json={"ncm": "22030000", "uf": "RJ", "icms_rate": 20, "valid_from": "2026-01-01",
+                                       "source": "RICMS-RJ", "reason": "teste"}, headers=auth)
+    product = new_product(client, auth, ncm="22030000")
+
+    summary_sp = client.get(f"/products/{product['id']}", params={"uf": "SP"}).json()["fiscal_summary"]
+    assert summary_sp["icms_rate"] == 18
+    assert summary_sp["ipi_rate"] == 3.9
+    assert summary_sp["ii_rate"] == 18.0
+    assert summary_sp["sources"]["ipi_rate"].startswith("Oficial:")
+
+    national_summary = client.get(f"/products/{product['id']}").json()["fiscal_summary"]
+    assert national_summary["icms_rate"] is None
+    assert national_summary["ipi_rate"] == 3.9
+
+
+def test_aliquota_oficial_que_muda_vira_nova_versao(ncm_table):
+    from datetime import date
+    from database.fiscal import FiscalDB
+    fiscal = FiscalDB()
+    rates = {"ipi_by_ncm": {"22030000": 3.9}, "ipi_exceptions_by_ncm": {}, "ii_by_ncm": {}, "source": "Oficial: teste"}
+    fiscal.apply_official_rates(rates, today=date(2026, 1, 1))
+    ok, totals = fiscal.apply_official_rates({**rates, "ipi_by_ncm": {"22030000": 5.0}}, today=date(2026, 6, 1))
+
+    assert totals == {"created": 0, "changed": 1, "unchanged": 0}
+    ok, versions = fiscal.run_sql("SELECT ipi_rate, valid_from, valid_until FROM fiscal_rules ORDER BY valid_from")
+    assert versions == [
+        {"ipi_rate": 3.9, "valid_from": "2026-01-01", "valid_until": "2026-05-31"},
+        {"ipi_rate": 5.0, "valid_from": "2026-06-01", "valid_until": None},
+    ]

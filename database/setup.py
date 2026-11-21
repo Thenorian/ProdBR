@@ -36,8 +36,9 @@ def prepare_databases():
 
 def import_newest_ncm_table_if_needed():
     """
-    Para atualizar o NCM: baixe o JSON novo no Portal Único Siscomex, coloque em
-    reference_data/ncm/ e publique. O arquivo de nome mais recente é importado uma vez.
+    Reserva para a primeira subida: se a tabela da pasta reference_data/ncm ainda não foi
+    importada, importa. A atualização de verdade é o download diário (util/official_data.py);
+    esta pasta só garante que o banco nunca fica sem NCM se o site do governo estiver fora do ar.
     """
     from util.data_util import DataUtil
 
@@ -52,6 +53,10 @@ def import_newest_ncm_table_if_needed():
         raise SystemExit(f"[NCM] Erro ao consultar as importações: {already_imported}")
     if already_imported:
         return
+
+    ok, any_import = Database().exists("ncm_imports", where={"id": ("!=", "")})
+    if ok and any_import:
+        return  # o banco já tem uma tabela (do download diário); a da pasta pode ser mais velha
 
     ok, summary = DataUtil().import_ncm_file(newest_file)
     if not ok:

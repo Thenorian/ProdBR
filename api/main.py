@@ -9,8 +9,10 @@ from fastapi import FastAPI
 
 from api import categories, contributors, download, fiscal, ncm, products, revisions
 from database.setup import prepare_databases
+from util.daily_update import start_daily_official_update
 
 prepare_databases()
+start_daily_official_update()
 
 app = FastAPI(
     title="ProdBR API",

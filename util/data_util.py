@@ -40,6 +40,29 @@ class DataUtil:
 
         return NcmDB().save_table(table, Path(path).name)
 
+    def import_ncm_content(self, content, origin_name):
+        """
+        Mesmo que import_ncm_file, mas com o JSON já carregado (ex: baixado agora do Siscomex).
+        Se essa mesma versão da tabela já foi importada, não grava de novo.
+
+            ok, summary = DataUtil().import_ncm_content(json_baixado, "Siscomex (download diário)")
+            summary  ->  {"saved": 15157, ...}  ou  {"already_imported": True}
+        """
+        ok, table = self.read_ncm_content(content)
+        if not ok:
+            return False, table
+
+        ncm_db = NcmDB()
+        ok, already_imported = ncm_db.exists(
+            "ncm_imports", where={"legal_act": table["legal_act"], "version_label": table["version_label"]}
+        )
+        if not ok:
+            return False, already_imported
+        if already_imported:
+            return True, {"already_imported": True, **{key: table[key] for key in ("legal_act", "version_label")}}
+
+        return ncm_db.save_table(table, origin_name)
+
     def read_ncm_file(self, path):
         """
         Lê o JSON da tabela de NCM e devolve os códigos limpos, sem gravar nada.
@@ -63,6 +86,13 @@ class DataUtil:
         ok, content = self._load_json_file(path)
         if not ok:
             return False, content
+
+        return self.read_ncm_content(content)
+
+    def read_ncm_content(self, content):
+        """Mesmo que read_ncm_file, com o JSON já carregado na memória."""
+        if not isinstance(content, dict):
+            return False, "O JSON precisa ser um objeto com a chave \"Nomenclaturas\"."
 
         entries = content.get("Nomenclaturas")
         if not isinstance(entries, list) or not entries:

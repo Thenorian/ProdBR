@@ -69,12 +69,23 @@ Toda vez que o app inicia (`database/setup.py`), sem nenhum passo manual:
 3. Importa a tabela de NCM mais nova de `reference_data/ncm/`, se ainda
    não foi importada.
 
-## Atualizar a tabela de NCM
+## Dados oficiais, atualizados sozinhos todo dia
 
-Baixe o JSON em portalunico.siscomex.gov.br, coloque em
-`reference_data/ncm/` com o nome original (`Tabela_NCM_Vigente_AAAAMMDD.json`)
-e publique. Os códigos novos entram, os alterados são atualizados e os que
-saíram da tabela ficam com `in_force = 0` (nunca são apagados).
+O app baixa uma vez por dia, sem cron e sem passo manual (`util/daily_update.py`):
+
+- a tabela NCM vigente do Portal Único Siscomex (JSON público);
+- o IPI da TIPI (Receita Federal) e o II da TEC (MDIC/Gecex).
+
+O IPI e o II viram uma regra fiscal nacional "Oficial: ..." por NCM. Quando a
+alíquota muda, a regra antiga é encerrada e nasce outra, então o histórico das
+alíquotas fica guardado. Regras da comunidade nunca são alteradas. NCM que sai
+da tabela fica com `in_force = 0`, nunca é apagado.
+
+Para rodar na hora: `python -m scripts.update_official_data`.
+Para desligar: `NCM_AUTO_UPDATE=false`.
+
+A tabela em `reference_data/ncm/` é só reserva: entra na primeira subida se o
+site do governo estiver fora do ar.
 
 ## Como o NCM do produto é decidido
 
@@ -82,6 +93,8 @@ saíram da tabela ficam com `in_force = 0` (nunca são apagados).
 2. Se não tem, vale o da categoria. Se a categoria também não tem, o da
    categoria acima, até a raiz. O mesmo vale para CEST e origem.
 3. As regras fiscais são as do NCM que valer, filtradas por UF e regime.
+4. `fiscal_summary` junta as regras campo a campo (ICMS da UF + IPI e II
+   oficiais) num quadro só. É o campo que o ERP deve usar.
 
 O produto pode ficar sem NCM, ou com um NCM fora da tabela oficial: é uma
 Wiki. A API avisa com `"in_official_table": false`.

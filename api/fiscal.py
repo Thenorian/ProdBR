@@ -29,7 +29,7 @@ class FiscalRuleInput(BaseModel):
     fcp_rate: float | None = RATE
     icms_st_mva_rate: float | None = Field(None, ge=0, le=1000)
     ipi_cst: str | None = Field(None, max_length=2)
-    ipi_rate: float | None = RATE
+    ipi_rate: float | None = Field(None, ge=0, le=1000, description="Até 1000%: cigarro tem IPI de 300%.")
     pis_cofins_cst: str | None = Field(None, max_length=2)
     pis_rate: float | None = RATE
     cofins_rate: float | None = RATE

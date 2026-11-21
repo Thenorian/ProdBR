@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from database.category import CategoryDB, now_text
 from database.database import Database
-from database.fiscal import FiscalDB
+from database.fiscal import FiscalDB, summarize_fiscal_rules
 from database.revision import revision_command
 
 PRODUCT_FIELDS = (
@@ -35,6 +35,7 @@ class ProductDB(Database):
         NCM, CEST e origem: vale o do produto; o que estiver vazio vem da categoria
         (ou da categoria acima). A lista "fiscal_data_from_category" diz o que veio de lá.
         As regras fiscais são as do NCM que estiver valendo, filtradas por uf e regime se informados.
+        "fiscal_summary" junta as regras campo a campo (ICMS da UF + IPI/II oficiais): é o que o ERP usa.
         """
         ok, product = self.select("products", where={"id": product_id}, fetch="one")
         if not ok or product is None:
@@ -83,6 +84,7 @@ class ProductDB(Database):
             "origin": product["origin"],
             "fiscal_data_from_category": fiscal_data_from_category,
             "price": price,
+            "fiscal_summary": summarize_fiscal_rules(fiscal_rules, uf, tax_regime),
             "fiscal_rules": fiscal_rules,
             "source": product["source"],
             "created_at": product["created_at"],
