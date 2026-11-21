@@ -39,6 +39,12 @@ de um jeito que quebre quem já usa:
   tornar obrigatório algo que era opcional. Isso vira uma `/api/v2`, montada
   ao lado em `server.py`, e a v1 continua no ar até ninguém mais usar.
 
+As rotas da API antiga, sem versão (`/products`, `/identifiers`, `/ncm/{código}`),
+continuam respondendo no formato antigo só para sistemas já instalados
+(OS-Mechanical nos clientes e versões antigas do Simple ERP). Ficam em
+`api/legacy_v0.py`, não recebem nada novo e podem ser apagadas quando ninguém
+mais usar.
+
 ## Rodar localmente
 
 ```bash

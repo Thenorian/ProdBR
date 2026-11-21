@@ -15,6 +15,7 @@ exige uma /api/v2, montada aqui ao lado, com a v1 continuando no ar.
 """
 from fastapi.responses import RedirectResponse
 
+from api import legacy_v0
 from api.main import app as api_v1
 from website.main import app
 
@@ -30,3 +31,6 @@ def api_documentation_of_current_version():
 
 for version, api_app in API_VERSIONS.items():
     app.mount(f"/api/{version}", api_app)
+
+# Rotas da API antiga (sem versão), só para sistemas já instalados. Ver api/legacy_v0.py.
+app.include_router(legacy_v0.router)
