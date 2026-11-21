@@ -1,0 +1,12 @@
+{# Botão que copia um valor para a área de transferência. O comportamento está em static/site.js. #}
+{% macro copy_button(value, what) %}
+  {% if value is not none and value != "" %}
+    <button class="copy-button" type="button" data-copy="{{ value }}"
+            aria-label="Copiar {{ what }}" title="Copiar {{ what }}">
+      <svg class="copy-button__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+        <path d="M5 15V6a2 2 0 0 1 2-2h9"></path>
+      </svg>
+    </button>
+  {% endif %}
+{% endmacro %}

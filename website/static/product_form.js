@@ -9,6 +9,13 @@ if (!savedToken()) {
   document.querySelector("[data-needs-token]").hidden = false;
 }
 
+// NCM e CEST são só números: se colar "2203.00.00", vira "22030000".
+for (const fieldName of ["ncm", "cest"]) {
+  form.elements[fieldName].addEventListener("input", (event) => {
+    event.target.value = event.target.value.replace(/[^0-9]/g, "");
+  });
+}
+
 function textOrNull(value) {
   const text = value.trim();
   return text === "" ? null : text;

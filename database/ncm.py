@@ -72,7 +72,12 @@ class NcmDB(Database):
         """(True, linha do NCM) ou (True, None) se o código não existe."""
         if not ONLY_DIGITS.match(str(code)):
             return False, f"Código de NCM inválido: {code!r}"
-        return self.select("ncm", where={"code": code}, fetch="one")
+        return self.select(
+            "ncm",
+            ["code", "level", "parent_code", "description", "full_description", "valid_from", "valid_until", "in_force"],
+            where={"code": code},
+            fetch="one",
+        )
 
     def search(self, text, limit, offset):
         """
@@ -83,7 +88,7 @@ class NcmDB(Database):
         """
         code_prefix = str(text).replace(".", "").strip()
         sql = """
-            SELECT code, formatted_code, description, full_description, in_force
+            SELECT code, level, description, full_description, in_force
             FROM ncm
             WHERE level = ? AND (code LIKE ? OR full_description LIKE ?)
             ORDER BY code

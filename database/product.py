@@ -318,7 +318,7 @@ class ProductDB(Database):
             return True, None
 
         ok, ncm = self.select(
-            "ncm", ["code", "formatted_code", "description", "full_description", "in_force"],
+            "ncm", ["code", "description", "full_description", "in_force"],
             where={"code": ncm_code}, fetch="one",
         )
         if not ok:
@@ -327,7 +327,6 @@ class ProductDB(Database):
         if ncm is None:
             return True, {
                 "code": ncm_code,
-                "formatted_code": f"{ncm_code[:4]}.{ncm_code[4:6]}.{ncm_code[6:]}",
                 "description": None,
                 "full_description": None,
                 "in_official_table": False,
@@ -335,7 +334,6 @@ class ProductDB(Database):
 
         return True, {
             "code": ncm["code"],
-            "formatted_code": ncm["formatted_code"],
             "description": ncm["description"],
             "full_description": ncm["full_description"],
             "in_official_table": bool(ncm["in_force"]),

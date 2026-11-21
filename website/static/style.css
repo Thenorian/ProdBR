@@ -465,6 +465,71 @@ h2 {
   text-align: center;
 }
 
+/* Botão de copiar: discreto ao lado do valor, vira um "✓" depois de copiar */
+
+.copyable {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+}
+
+.copy-button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.copy-button:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface-muted);
+  color: var(--color-accent);
+}
+
+.copy-button__icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.copy-button[data-copied] {
+  color: var(--color-success);
+}
+
+.copy-button[data-copied] .copy-button__icon {
+  display: none;
+}
+
+.copy-button[data-copied]::after {
+  content: "✓";
+  font-weight: 700;
+}
+
+.copy-helper {
+  position: fixed;
+  top: -1000px;
+  opacity: 0;
+}
+
+.infobox__list dd .copyable {
+  display: flex;
+  justify-content: space-between;
+}
+
 .tag {
   display: inline-block;
   margin-left: var(--space-1);

@@ -59,11 +59,13 @@
       <div class="form__row form__row--three">
         <label class="field">
           <span class="field__label">NCM</span>
-          <input class="field__input" name="ncm" inputmode="numeric" maxlength="10" placeholder="8 dígitos" value="{{ own_ncm }}">
+          <input class="field__input" name="ncm" inputmode="numeric" maxlength="8" pattern="[0-9]{8}"
+                 title="Só números, 8 dígitos" placeholder="Só números, 8 dígitos" value="{{ own_ncm }}">
         </label>
         <label class="field">
           <span class="field__label">CEST</span>
-          <input class="field__input" name="cest" inputmode="numeric" maxlength="9" placeholder="7 dígitos" value="{{ own_cest }}">
+          <input class="field__input" name="cest" inputmode="numeric" maxlength="7" pattern="[0-9]{7}"
+                 title="Só números, 7 dígitos" placeholder="Só números, 7 dígitos" value="{{ own_cest }}">
         </label>
         <label class="field">
           <span class="field__label">Origem</span>

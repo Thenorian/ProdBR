@@ -64,4 +64,37 @@ function showSignedInUserInMenu() {
   }
 }
 
+// Botões de copiar (data-copy). Um ouvinte só para a página inteira.
+async function copyToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  // Navegador sem a API de área de transferência (ex: página sem https): jeito antigo.
+  const hiddenField = document.createElement("textarea");
+  hiddenField.value = text;
+  hiddenField.setAttribute("readonly", "");
+  hiddenField.className = "copy-helper";
+  document.body.appendChild(hiddenField);
+  hiddenField.select();
+  document.execCommand("copy");
+  hiddenField.remove();
+}
+
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-copy]");
+  if (!button) {
+    return;
+  }
+
+  try {
+    await copyToClipboard(button.dataset.copy);
+    button.dataset.copied = "true";
+    setTimeout(() => delete button.dataset.copied, 1500);
+  } catch (error) {
+    button.title = "Não foi possível copiar";
+  }
+});
+
 showSignedInUserInMenu();

@@ -71,6 +71,20 @@ def percent(value):
     return f"{value:g}%".replace(".", ",")
 
 
+def number_to_copy(value, decimals=None):
+    """
+    Número do jeito que se digita num ERP brasileiro: vírgula decimal, sem símbolo.
+
+        number_to_copy(1.65)       ->  "1,65"
+        number_to_copy(18.0)       ->  "18"
+        number_to_copy(93.25, 2)   ->  "93,25"
+    """
+    if value is None:
+        return ""
+    text = f"{value:.{decimals}f}" if decimals is not None else f"{value:g}"
+    return text.replace(".", ",")
+
+
 def origin_name(code):
     return ORIGIN_NAMES.get(code, "")
 
@@ -128,6 +142,7 @@ def register_filters(jinja_environment):
     jinja_environment.filters["data_br"] = brazilian_date
     jinja_environment.filters["reais"] = money
     jinja_environment.filters["porcento"] = percent
+    jinja_environment.filters["para_copiar"] = number_to_copy
     jinja_environment.filters["origem"] = origin_name
     jinja_environment.filters["regime"] = tax_regime_name
     jinja_environment.filters["campo"] = field_name
