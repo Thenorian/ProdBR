@@ -21,6 +21,19 @@ function textOrNull(value) {
   return text === "" ? null : text;
 }
 
+// Uma linha por código: "7891000100103, 6x350ml". A embalagem depois da vírgula é opcional.
+function barcodesFromText(text) {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+    .map((line) => {
+      const [barcode, ...packageParts] = line.split(",");
+      const packageText = packageParts.join(",").trim();
+      return packageText === "" ? barcode.trim() : { barcode: barcode.trim(), package: packageText };
+    });
+}
+
 function productFromForm() {
   const fields = new FormData(form);
   const origin = fields.get("origin");
@@ -32,7 +45,7 @@ function productFromForm() {
     manufacturer_code: textOrNull(fields.get("manufacturer_code")),
     description: textOrNull(fields.get("description")),
     category: textOrNull(fields.get("category")),
-    barcodes: fields.get("barcodes").split(/[\s,;]+/).filter((barcode) => barcode !== ""),
+    barcodes: barcodesFromText(fields.get("barcodes")),
     ncm: textOrNull(fields.get("ncm")),
     cest: textOrNull(fields.get("cest")),
     origin: origin === "" ? null : Number(origin),

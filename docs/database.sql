@@ -95,9 +95,16 @@ CREATE INDEX IF NOT EXISTS idx_products_updated_at ON products (updated_at);
 
 -- Códigos de barras (GTIN-8, 12, 13 ou 14). Um produto pode ter vários
 -- (unidade, caixa, fardo), mas um código pertence a um produto só.
+-- Cada código é uma embalagem: package_description é o texto como o fabricante
+-- escreve ("6x350ml"); os outros campos são lidos dele quando dá certeza (util/packaging.py).
+-- net_unit: mg, g, kg, ml, l ou un.
 CREATE TABLE IF NOT EXISTS product_barcodes (
     barcode VARCHAR(14) NOT NULL PRIMARY KEY,
     product_id CHAR(36) NOT NULL REFERENCES products (id),
+    package_description VARCHAR(120) NULL,
+    net_quantity REAL NULL,
+    net_unit VARCHAR(5) NULL,
+    units_per_pack INTEGER NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

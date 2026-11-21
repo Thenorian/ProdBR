@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_copy_button.html" import copy_button %}
 {% block title %}{{ product.name }}{% if product.barcodes %} · {{ product.barcodes[0] }}{% endif %} · ProdBR{% endblock %}
-{% block description %}{{ product.name }}{% if product.brand %}, {{ product.brand }}{% endif %}{% if product.ncm %}. NCM {{ product.ncm.code }}{% endif %}{% if product.barcodes %}. Código de barras {{ product.barcodes | join(", ") }}{% endif %}.{% endblock %}
+{% block description %}{{ product.name }}{% if product.brand %}, {{ product.brand }}{% endif %}{% if product.ncm %}. NCM {{ product.ncm.code }}{% endif %}{% if product.barcodes %}. Código de barras {{ product.barcodes | map(attribute="barcode") | join(", ") }}{% endif %}.{% endblock %}
 {% block head %}
   {% set structured_data = {
     "@context": "https://schema.org",
@@ -10,7 +10,7 @@
     "brand": product.brand,
     "manufacturer": product.manufacturer,
     "mpn": product.manufacturer_code,
-    "gtin": product.barcodes[0] if product.barcodes else None,
+    "gtin": product.barcodes[0].barcode if product.barcodes else None,
     "description": product.description,
     "category": product.category.path if product.category else None,
   } %}
@@ -32,8 +32,11 @@
       <dl class="infobox__list">
         <dt>Código de barras</dt>
         <dd>
-          {% for barcode in product.barcodes %}
-            <span class="copyable"><span class="code">{{ barcode }}</span>{{ copy_button(barcode, "código de barras") }}</span>
+          {% for item in product.barcodes %}
+            <div class="barcode-item">
+              <span class="copyable"><span class="code">{{ item.barcode }}</span>{{ copy_button(item.barcode, "código de barras") }}</span>
+              {% if item.package_description %}<span class="muted small">{{ item.package_description }}</span>{% endif %}
+            </div>
           {% else %}<span class="muted">Não informado</span>{% endfor %}
         </dd>
 

@@ -11,6 +11,8 @@ PRODUCT_FIELDS = (
     "category_id", "ncm_code", "cest", "origin", "commercial_unit", "source",
 )
 
+BARCODE_FIELDS = ("barcode", "package_description", "net_quantity", "net_unit", "units_per_pack")
+
 PRICE_PERIOD_IN_MONTHS = 12
 
 
@@ -38,7 +40,7 @@ class ProductDB(Database):
         if not ok or product is None:
             return ok, product
 
-        ok, barcodes = self.select("product_barcodes", ["barcode"], where={"product_id": product_id}, order_by="barcode")
+        ok, barcodes = self.list_barcodes(product_id)
         if not ok:
             return False, barcodes
 
@@ -73,7 +75,7 @@ class ProductDB(Database):
             "manufacturer": product["manufacturer"],
             "manufacturer_code": product["manufacturer_code"],
             "description": product["description"],
-            "barcodes": [row["barcode"] for row in barcodes],
+            "barcodes": barcodes,
             "category": category and {"id": category["id"], "path": category["path"]},
             "commercial_unit": product["commercial_unit"],
             "ncm": ncm,
@@ -86,6 +88,10 @@ class ProductDB(Database):
             "created_at": product["created_at"],
             "updated_at": product["updated_at"],
         }
+
+    def list_barcodes(self, product_id):
+        """Códigos de barras do produto, cada um com a embalagem dele."""
+        return self.select("product_barcodes", list(BARCODE_FIELDS), where={"product_id": product_id}, order_by="barcode")
 
     def find_id_by_barcode(self, barcode):
         ok, row = self.select("product_barcodes", ["product_id"], where={"barcode": barcode}, fetch="one")
@@ -179,6 +185,7 @@ class ProductDB(Database):
         """
         Cria o produto com os códigos de barras e grava o histórico, tudo numa transação.
         data tem as colunas de PRODUCT_FIELDS (já validadas pela API).
+        barcodes é uma lista de dicionários com as colunas de BARCODE_FIELDS.
         """
         ok, error = self._check_barcodes_are_free(barcodes, product_id=None)
         if not ok:
@@ -194,14 +201,13 @@ class ProductDB(Database):
             [product_id, *[data[field] for field in filled_fields]],
         )]
 
-        for barcode in barcodes:
-            commands.append(("INSERT INTO product_barcodes (barcode, product_id) VALUES (?, ?)", (barcode, product_id)))
+        commands.extend(insert_barcode_commands(product_id, barcodes))
 
         for field in filled_fields:
             commands.append(revision_command("product", product_id, contributor, "create", reason, field, None, data[field]))
         if barcodes:
             commands.append(
-                revision_command("product", product_id, contributor, "create", reason, "barcodes", None, ", ".join(barcodes))
+                revision_command("product", product_id, contributor, "create", reason, "barcodes", None, barcodes_as_text(barcodes))
             )
 
         ok, error = self.run_in_transaction(commands)
@@ -264,27 +270,24 @@ class ProductDB(Database):
         })
 
     def _barcode_change_commands(self, product_id, new_barcodes, contributor, reason):
-        ok, rows = self.select("product_barcodes", ["barcode"], where={"product_id": product_id}, order_by="barcode")
+        """Se a lista mudou (código ou embalagem), troca todos os códigos do produto pela lista nova."""
+        ok, current_barcodes = self.list_barcodes(product_id)
         if not ok:
-            return False, rows
+            return False, current_barcodes
 
-        current_barcodes = [row["barcode"] for row in rows]
-        if sorted(current_barcodes) == sorted(new_barcodes):
+        new_barcodes = sorted(new_barcodes, key=lambda item: item["barcode"])
+        if [dict(row) for row in current_barcodes] == [complete_barcode(item) for item in new_barcodes]:
             return True, []
 
         ok, error = self._check_barcodes_are_free(new_barcodes, product_id)
         if not ok:
             return False, error
 
-        commands = []
-        for barcode in set(current_barcodes) - set(new_barcodes):
-            commands.append(("DELETE FROM product_barcodes WHERE barcode = ?", (barcode,)))
-        for barcode in set(new_barcodes) - set(current_barcodes):
-            commands.append(("INSERT INTO product_barcodes (barcode, product_id) VALUES (?, ?)", (barcode, product_id)))
-
+        commands = [("DELETE FROM product_barcodes WHERE product_id = ?", (product_id,))]
+        commands.extend(insert_barcode_commands(product_id, new_barcodes))
         commands.append(revision_command(
             "product", product_id, contributor, "update", reason,
-            "barcodes", ", ".join(sorted(current_barcodes)), ", ".join(sorted(new_barcodes)),
+            "barcodes", barcodes_as_text(current_barcodes), barcodes_as_text(new_barcodes),
         ))
         return True, commands
 
@@ -293,7 +296,8 @@ class ProductDB(Database):
         if not barcodes:
             return True, None
 
-        ok, rows = self.select("product_barcodes", ["barcode", "product_id"], where={"barcode": list(barcodes)})
+        codes = [item["barcode"] for item in barcodes]
+        ok, rows = self.select("product_barcodes", ["barcode", "product_id"], where={"barcode": codes})
         if not ok:
             return False, rows
 
@@ -395,3 +399,31 @@ class ProductDB(Database):
                 break
 
         return True, found_ids
+
+
+def complete_barcode(item):
+    """O código de barras com todas as colunas, as que não vieram como vazias."""
+    return {field: item.get(field) for field in BARCODE_FIELDS}
+
+
+def insert_barcode_commands(product_id, barcodes):
+    commands = []
+    for item in barcodes:
+        barcode = complete_barcode(item)
+        commands.append((
+            """INSERT INTO product_barcodes
+                   (barcode, product_id, package_description, net_quantity, net_unit, units_per_pack)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (barcode["barcode"], product_id, barcode["package_description"], barcode["net_quantity"],
+             barcode["net_unit"], barcode["units_per_pack"]),
+        ))
+    return commands
+
+
+def barcodes_as_text(barcodes):
+    """Para o histórico: "7891000100103 (6x350ml), 7891000053508"."""
+    parts = []
+    for item in sorted(barcodes, key=lambda item: item["barcode"]):
+        package = item.get("package_description")
+        parts.append(f"{item['barcode']} ({package})" if package else item["barcode"])
+    return ", ".join(parts)

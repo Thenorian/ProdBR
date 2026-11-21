@@ -70,7 +70,7 @@ def main() -> None:
             }
             barcode = clean_barcode(row["gtin"])
 
-            ok, result = products.create(data, [barcode] if barcode else [], CONTRIBUTOR, REASON)
+            ok, result = products.create(data, [{"barcode": barcode}] if barcode else [], CONTRIBUTOR, REASON)
             if not ok:
                 print(f"[erro] {row['name']}: {result}")
                 continue

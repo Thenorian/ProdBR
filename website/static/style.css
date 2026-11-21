@@ -530,6 +530,10 @@ h2 {
   justify-content: space-between;
 }
 
+.barcode-item + .barcode-item {
+  margin-top: var(--space-2);
+}
+
 .tag {
   display: inline-block;
   margin-left: var(--space-1);

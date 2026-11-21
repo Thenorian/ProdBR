@@ -22,10 +22,16 @@ from uuid import uuid4
 
 from database.category import CategoryDB
 from database.database import CommunityDatabase, Database
+from database.product import insert_barcode_commands
+from database.revision import revision_command
 from util.validation import clean_barcode, clean_category_path, clean_cest, clean_ncm, clean_uf
 
 DEFAULT_LEGACY_PUBLIC_PATH = "data/public.sqlite3"
 DEFAULT_LEGACY_COMMUNITY_PATH = "data/community.sqlite3"
+
+SKIPPED_IDENTIFIER_REASON = (
+    "Retirado na migração para a versão nova: código de barras com dígito verificador inválido ou repetido"
+)
 
 BARCODE_IDENTIFIER_TYPES = ("gtin8", "gtin12", "gtin13", "gtin14", "upc", "ean", "other")
 
@@ -108,7 +114,7 @@ class LegacyImport:
     def _product_commands(self, legacy, category_id_by_old_id, commands):
         identifiers_by_product = {}
         if self._table_exists(legacy, "product_identifiers"):
-            for identifier in legacy.execute("SELECT product_id, type, value FROM product_identifiers ORDER BY id"):
+            for identifier in legacy.execute("SELECT * FROM product_identifiers ORDER BY id"):
                 identifiers_by_product.setdefault(identifier["product_id"], []).append(identifier)
 
         used_barcodes = set()
@@ -126,10 +132,16 @@ class LegacyImport:
 
                 barcode = clean_barcode(identifier["value"])
                 if identifier["type"] in BARCODE_IDENTIFIER_TYPES and barcode and barcode not in used_barcodes:
-                    barcodes.append(barcode)
+                    barcodes.append(legacy_barcode_with_package(barcode, identifier))
                     used_barcodes.add(barcode)
                 else:
                     skipped_identifiers.append(f"{product['id']}: {identifier['type']} {identifier['value']}")
+                    # Não entra como código de barras (nota com GTIN inválido é rejeitada pela SEFAZ),
+                    # mas fica registrado no histórico do produto para ninguém perder a informação.
+                    commands.append(revision_command(
+                        "product", product["id"], "importacao", "delete", SKIPPED_IDENTIFIER_REASON,
+                        "barcodes", identifier["value"], None,
+                    ))
 
             commands.append((
                 """INSERT INTO products (id, name, brand, manufacturer, manufacturer_code, description,
@@ -142,8 +154,7 @@ class LegacyImport:
                     product["source"], product["created_at"], product["updated_at"],
                 ),
             ))
-            for barcode in barcodes:
-                commands.append(("INSERT INTO product_barcodes (barcode, product_id) VALUES (?, ?)", (barcode, product["id"])))
+            commands.extend(insert_barcode_commands(product["id"], barcodes))
             product_count += 1
 
         messages = [f"importação antiga: {product_count} produtos, {len(used_barcodes)} códigos de barras"]
@@ -257,3 +268,19 @@ class LegacyImport:
     def _table_exists(connection, table):
         found = connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone()
         return found is not None
+
+
+def legacy_barcode_with_package(barcode, identifier):
+    """A embalagem por código de barras só existe nas versões antigas mais novas; nas outras fica vazia."""
+    columns = identifier.keys()
+
+    def column_or_none(column):
+        return identifier[column] if column in columns else None
+
+    return {
+        "barcode": barcode,
+        "package_description": column_or_none("description"),
+        "net_quantity": column_or_none("net_quantity"),
+        "net_unit": column_or_none("net_unit"),
+        "units_per_pack": column_or_none("units_per_pack"),
+    }

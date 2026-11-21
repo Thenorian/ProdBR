@@ -36,7 +36,7 @@ def test_busca_pelo_codigo_de_barras_traz_tudo(client, auth, ncm_table):
     response = client.get(f"/barcode/{VALID_BARCODE}")
     assert response.status_code == 200
     product = response.json()
-    assert product["barcodes"] == [VALID_BARCODE]
+    assert [item["barcode"] for item in product["barcodes"]] == [VALID_BARCODE]
     assert product["ncm"]["description"] == "Cervejas de malte."
     assert product["manufacturer_code"] == "CX-350"
 
@@ -138,3 +138,34 @@ def test_sql_injection_na_busca_nao_quebra_nada(client, auth):
     assert response.status_code == 200
     assert response.json()["total"] == 0
     assert client.get("/products").json()["total"] == 1
+
+
+def test_embalagem_lida_do_texto_do_codigo_de_barras(client, auth):
+    product = new_product(client, auth, barcodes=[
+        {"barcode": VALID_BARCODE, "package": "Fardo 6x350ml"},
+        OTHER_VALID_BARCODE,
+    ])
+    barcode_by_code = {item["barcode"]: item for item in product["barcodes"]}
+    packaged, plain = barcode_by_code[VALID_BARCODE], barcode_by_code[OTHER_VALID_BARCODE]
+
+    assert packaged == {
+        "barcode": VALID_BARCODE, "package_description": "Fardo 6x350ml",
+        "net_quantity": 350.0, "net_unit": "ml", "units_per_pack": 6,
+    }
+    assert plain["package_description"] is None
+
+
+def test_embalagem_informada_vale_mais_que_o_texto(client, auth):
+    product = new_product(client, auth, barcodes=[{"barcode": VALID_BARCODE, "package": "15 kg", "net_quantity": 15.1}])
+    assert product["barcodes"][0]["net_quantity"] == 15.1
+    assert product["barcodes"][0]["net_unit"] == "kg"
+
+
+def test_trocar_so_a_embalagem_grava_historico(client, auth):
+    product = new_product(client, auth, barcodes=[VALID_BARCODE])
+    response = client.put(
+        f"/products/{product['id']}",
+        json={"barcodes": [{"barcode": VALID_BARCODE, "package": "1 kg"}], "reason": "Embalagem"},
+        headers=auth,
+    )
+    assert response.json()["changed_fields"] == ["barcodes"]

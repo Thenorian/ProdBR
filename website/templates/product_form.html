@@ -34,8 +34,10 @@
       <div class="form__row">
         <label class="field">
           <span class="field__label">Códigos de barras</span>
-          <input class="field__input" name="barcodes" inputmode="numeric" placeholder="Separe por vírgula"
-                 value="{{ product.barcodes | join(', ') if product else '' }}">
+          <textarea class="field__input" name="barcodes" rows="2" placeholder="Um por linha. Ex: 7891000100103, 6x350ml"
+          >{% if product %}{% for item in product.barcodes %}{{ item.barcode }}{% if item.package_description %}, {{ item.package_description }}{% endif %}
+{% endfor %}{% endif %}</textarea>
+          <span class="muted small">Código, e se quiser a embalagem depois da vírgula.</span>
         </label>
         <label class="field">
           <span class="field__label">Código do fabricante</span>

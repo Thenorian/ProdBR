@@ -7,6 +7,7 @@ from api.rate_limit import limit_reads, limit_writes
 from database.category import CategoryDB
 from database.product import ProductDB
 from database.revision import RevisionDB
+from util.packaging import VALID_UNITS, read_package_text, standard_unit
 from util.validation import (
     clean_barcode, clean_category_path, clean_cest, clean_ncm, clean_tax_regime, clean_uf,
 )
@@ -14,6 +15,15 @@ from util.validation import (
 router = APIRouter(tags=["Produtos"])
 
 REASON_FIELD = Field(..., min_length=3, max_length=300, description="Motivo da alteração, como uma mensagem de commit.")
+
+
+class BarcodeInput(BaseModel):
+    """Código de barras com a embalagem. Os números da embalagem são lidos do texto quando não vêm."""
+    barcode: str
+    package: str | None = Field(None, max_length=120, description='Embalagem como o fabricante escreve. Ex: "6x350ml", "15 kg"')
+    net_quantity: float | None = Field(None, gt=0)
+    net_unit: str | None = Field(None, description=f"Uma de: {', '.join(VALID_UNITS)}")
+    units_per_pack: int | None = Field(None, ge=1)
 
 
 class ProductInput(BaseModel):
@@ -24,7 +34,10 @@ class ProductInput(BaseModel):
     manufacturer_code: str | None = Field(None, max_length=60, description="Código interno do fabricante. Ex: BPR6ES")
     description: str | None = Field(None, max_length=2000)
     category: str | None = Field(None, max_length=600, description='Caminho da categoria. Ex: "Bebidas > Cervejas"')
-    barcodes: list[str] | None = Field(None, max_length=50, description="Códigos de barras GTIN-8, 12, 13 ou 14.")
+    barcodes: list[str | BarcodeInput] | None = Field(
+        None, max_length=50,
+        description='Códigos de barras GTIN-8, 12, 13 ou 14. Só o código ("7891000100103") ou com a embalagem.',
+    )
     ncm: str | None = Field(None, description="NCM com 8 dígitos. Vazio = usa o da categoria.")
     cest: str | None = Field(None, description="CEST com 7 dígitos. Vazio = usa o da categoria.")
     origin: int | None = Field(None, ge=0, le=8, description="Origem da mercadoria (0 a 8, tabela do ICMS).")
@@ -202,12 +215,12 @@ def clean_product_input(payload, sent_fields, contributor_username):
     barcodes = None
     if "barcodes" in sent_fields:
         barcodes = []
-        for barcode in payload.barcodes or []:
-            cleaned = clean_barcode(barcode)
-            if cleaned is None:
-                errors.append(f"Código de barras inválido: {barcode} (confira o dígito verificador).")
-            elif cleaned not in barcodes:
-                barcodes.append(cleaned)
+        for item in payload.barcodes or []:
+            ok, barcode = clean_barcode_input(item)
+            if not ok:
+                errors.append(barcode)
+            elif barcode["barcode"] not in [already["barcode"] for already in barcodes]:
+                barcodes.append(barcode)
 
     if errors:
         raise HTTPException(status_code=400, detail=" ".join(errors))
@@ -222,3 +235,35 @@ def clean_product_input(payload, sent_fields, contributor_username):
             )
 
     return data, barcodes
+
+
+def clean_barcode_input(item):
+    """
+    Valida um código de barras e completa a embalagem lendo o texto dela.
+    O que veio explícito vale mais que o lido do texto.
+
+        "7891000100103"                                ->  {"barcode": "7891000100103", ...vazio}
+        {"barcode": "7891000100103", "package": "6x350ml"}
+            ->  {"barcode": ..., "package_description": "6x350ml", "units_per_pack": 6, "net_quantity": 350.0, "net_unit": "ml"}
+    """
+    if isinstance(item, str):
+        item = BarcodeInput(barcode=item)
+
+    barcode = clean_barcode(item.barcode)
+    if barcode is None:
+        return False, f"Código de barras inválido: {item.barcode} (confira o dígito verificador)."
+
+    package_description = " ".join((item.package or "").split()) or None
+    read_from_text = read_package_text(package_description)
+
+    net_unit = item.net_unit or read_from_text.get("net_unit")
+    if net_unit is not None and standard_unit(net_unit) is None:
+        return False, f"Unidade de embalagem inválida: {net_unit}. Use uma de: {', '.join(VALID_UNITS)}."
+
+    return True, {
+        "barcode": barcode,
+        "package_description": package_description,
+        "net_quantity": item.net_quantity or read_from_text.get("net_quantity"),
+        "net_unit": standard_unit(net_unit) if net_unit else None,
+        "units_per_pack": item.units_per_pack or read_from_text.get("units_per_pack"),
+    }
