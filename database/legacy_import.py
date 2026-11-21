@@ -244,7 +244,23 @@ class LegacyImport:
         if not ok:
             return False, error
 
-        return True, [f"importação antiga: {len(contributor_id_by_old_id)} contribuidores, {token_count} chaves de API"]
+        messages = [f"importação antiga: {len(contributor_id_by_old_id)} contribuidores, {token_count} chaves de API"]
+        messages.extend(self._pending_moderation_warning())
+        return True, messages
+
+    def _pending_moderation_warning(self):
+        """A fila de moderação antiga não é aplicada (nada ali foi aprovado). Só avisa quantas havia."""
+        legacy = self._open_read_only(self.legacy_community_path)
+        try:
+            if not self._table_exists(legacy, "pending_changes"):
+                return []
+            pending = legacy.execute("SELECT COUNT(*) FROM pending_changes WHERE status = 'pending'").fetchone()[0]
+        finally:
+            legacy.close()
+
+        if not pending:
+            return []
+        return [f"importação antiga: {pending} contribuições na fila de moderação não foram aplicadas (ficam no banco antigo)"]
 
     def _legacy_table_has_rows(self, path, table):
         if not path.is_file():
