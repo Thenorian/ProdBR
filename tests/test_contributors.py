@@ -1,0 +1,34 @@
+def test_cria_contribuidor_e_token_funciona(client):
+    response = client.post("/contributors", json={"username": "maria"})
+    assert response.status_code == 201
+    token = response.json()["token"]
+
+    response = client.post("/products", json={"name": "Produto", "reason": "teste"}, headers={"X-API-Key": token})
+    assert response.status_code == 201
+
+
+def test_nome_repetido_e_recusado(client):
+    client.post("/contributors", json={"username": "maria"})
+    assert client.post("/contributors", json={"username": "maria"}).status_code == 400
+
+
+def test_nome_invalido_e_recusado(client):
+    assert client.post("/contributors", json={"username": "a b"}).status_code == 400
+
+
+def test_api_nao_mostra_reputacao(client, auth):
+    client.post("/products", json={"name": "Produto", "reason": "teste"}, headers=auth)
+    api_description = client.get("/openapi.json").text
+    assert "reputation" not in api_description
+    assert "ranking" not in api_description
+
+
+def test_limite_de_contribuidores_novos_por_hora(client):
+    statuses = [client.post("/contributors", json={"username": f"user{number}"}).status_code for number in range(7)]
+    assert statuses.count(429) == 2
+
+
+def test_download_da_base_publica(client):
+    response = client.get("/download/prodbr.sqlite3")
+    assert response.status_code == 200
+    assert response.content.startswith(b"SQLite format 3")

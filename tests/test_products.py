@@ -1,251 +1,140 @@
-from datetime import datetime
-
-from app.database import PublicSession
-from app.models_public import Product
+VALID_BARCODE = "7891000100103"
+OTHER_VALID_BARCODE = "7891000053508"
 
 
-def make_product_payload(**overrides):
-    payload = {
-        "name": "Cerveja em garrafa de vidro, 600ml",
-        "brand": "Exemplo",
-        "ncm": "22030000",
-        "commercial_unit": "UN",
-        "source": "Contribuicao da comunidade",
-        "reason": "Cadastro inicial",
-    }
-    payload.update(overrides)
-    return payload
+def new_product(client, auth, **fields):
+    payload = {"name": "Cerveja Teste 350ml", "reason": "Cadastro de teste", **fields}
+    response = client.post("/products", json=payload, headers=auth)
+    assert response.status_code == 201, response.text
+    return response.json()
 
 
-def test_search_empty(client):
-    res = client.get("/products")
-    assert res.status_code == 200
-    body = res.json()
-    assert body["items"] == []
-    assert body["total"] == 0
+def test_leitura_nao_exige_token(client):
+    response = client.get("/products")
+    assert response.status_code == 200
+    assert response.json()["items"] == []
 
 
-def test_create_requires_auth(client):
-    res = client.post("/products", json=make_product_payload())
-    assert res.status_code == 401
+def test_escrita_exige_token(client):
+    response = client.post("/products", json={"name": "X", "reason": "teste"})
+    assert response.status_code == 401
 
 
-def test_trusted_user_create_applies_immediately(client, trusted_headers):
-    res = client.post("/products", json=make_product_payload(), headers=trusted_headers)
-    assert res.status_code == 201
-    body = res.json()
-    assert body["name"] == "Cerveja em garrafa de vidro, 600ml"
-    assert body["id"].startswith("prod_")
+def test_produto_sem_ncm_e_aceito(client, auth):
+    product = new_product(client, auth)
+    assert product["ncm"] is None
 
 
-def test_newbie_create_goes_to_moderation_queue(client, newbie_headers):
-    res = client.post("/products", json=make_product_payload(), headers=newbie_headers)
-    assert res.status_code == 202
-    body = res.json()
-    assert body["status"] == "pending"
-
-    # nao deve aparecer na base publica ainda
-    search = client.get("/products", params={"ncm": "22030000"})
-    assert search.json()["total"] == 0
+def test_ncm_fora_da_tabela_oficial_e_aceito_com_aviso(client, auth, ncm_table):
+    product = new_product(client, auth, ncm="82055000")
+    assert product["ncm"]["in_official_table"] is False
 
 
-def test_update_records_one_revision_per_field(client, trusted_headers):
-    create = client.post("/products", json=make_product_payload(), headers=trusted_headers)
-    product_id = create.json()["id"]
+def test_busca_pelo_codigo_de_barras_traz_tudo(client, auth, ncm_table):
+    new_product(client, auth, barcodes=[VALID_BARCODE], ncm="2203.00.00", manufacturer="Cervejaria X", manufacturer_code="CX-350")
 
-    res = client.put(
-        f"/products/{product_id}",
-        json={"brand": "Nova Marca", "commercial_unit": "CX", "reason": "correcao de cadastro"},
-        headers=trusted_headers,
-    )
-    assert res.status_code == 200
-    assert res.json()["brand"] == "Nova Marca"
-
-    revisions = client.get(f"/products/{product_id}/revisions").json()
-    fields_changed = {r["field"] for r in revisions if r["action"] == "update"}
-    assert fields_changed == {"brand", "commercial_unit"}
-    for r in revisions:
-        if r["action"] == "update":
-            assert r["reason"] == "correcao de cadastro"
-            assert r["contributor"] == "trusted_user"
+    response = client.get(f"/barcode/{VALID_BARCODE}")
+    assert response.status_code == 200
+    product = response.json()
+    assert product["barcodes"] == [VALID_BARCODE]
+    assert product["ncm"]["description"] == "Cervejas de malte."
+    assert product["manufacturer_code"] == "CX-350"
 
 
-def test_create_and_search_by_identifier(client, trusted_headers):
-    create = client.post("/products", json=make_product_payload(), headers=trusted_headers)
-    product_id = create.json()["id"]
-
-    res = client.post(
-        "/identifiers",
-        json={
-            "product_id": product_id,
-            "type": "gtin13",
-            "value": "7891149100104",
-            "reason": "codigo de barras da embalagem",
-        },
-        headers=trusted_headers,
-    )
-    assert res.status_code == 201
-
-    search = client.get("/products", params={"identifier": "7891149100104"})
-    assert search.status_code == 200
-    body = search.json()
-    assert body["total"] == 1
-    assert body["items"][0]["id"] == product_id
+def test_codigo_de_barras_com_digito_errado_e_recusado(client, auth):
+    response = client.post("/products", json={"name": "X", "barcodes": ["7891000100104"], "reason": "teste"}, headers=auth)
+    assert response.status_code == 400
 
 
-def test_duplicate_identifier_conflicts(client, trusted_headers):
-    p1 = client.post("/products", json=make_product_payload(), headers=trusted_headers).json()["id"]
-    p2 = client.post(
-        "/products", json=make_product_payload(ncm="19059090"), headers=trusted_headers
-    ).json()["id"]
-
-    client.post(
-        "/identifiers",
-        json={"product_id": p1, "type": "gtin13", "value": "123", "reason": "teste"},
-        headers=trusted_headers,
-    )
-    res = client.post(
-        "/identifiers",
-        json={"product_id": p2, "type": "gtin13", "value": "123", "reason": "teste"},
-        headers=trusted_headers,
-    )
-    assert res.status_code == 400
+def test_codigo_de_barras_nao_pode_ser_de_dois_produtos(client, auth):
+    new_product(client, auth, barcodes=[VALID_BARCODE])
+    response = client.post("/products", json={"name": "Outro", "barcodes": [VALID_BARCODE], "reason": "teste"}, headers=auth)
+    assert response.status_code == 400
+    assert "já pertence" in response.json()["detail"]
 
 
-def test_update_identifier_value(client, trusted_headers):
-    product_id = client.post("/products", json=make_product_payload(), headers=trusted_headers).json()["id"]
-    identifier_id = client.post(
-        "/identifiers",
-        json={"product_id": product_id, "type": "gtin13", "value": "7891149100104", "reason": "cadastro"},
-        headers=trusted_headers,
-    ).json()["id"]
+def test_produto_sem_ncm_herda_da_categoria(client, auth, ncm_table):
+    client.post("/categories", json={"path": "Bebidas", "ncm": "22030000", "reason": "NCM das bebidas"}, headers=auth)
+    product = new_product(client, auth, category="Bebidas > Cervejas")
 
-    res = client.put(
-        f"/identifiers/{identifier_id}",
-        json={"value": "7891149100999", "reason": "corrigindo digito"},
-        headers=trusted_headers,
-    )
-    assert res.status_code == 200, res.text
-    assert res.json()["value"] == "7891149100999"
+    assert product["category"]["path"] == "Bebidas > Cervejas"
+    assert product["ncm"]["code"] == "22030000"
+    assert product["fiscal_data_from_category"] == ["ncm_code"]
 
 
-def test_update_identifier_empty_payload_rejected(client, trusted_headers):
-    product_id = client.post("/products", json=make_product_payload(), headers=trusted_headers).json()["id"]
-    identifier_id = client.post(
-        "/identifiers",
-        json={"product_id": product_id, "type": "gtin13", "value": "7891149100104", "reason": "cadastro"},
-        headers=trusted_headers,
-    ).json()["id"]
+def test_ncm_do_produto_vale_mais_que_o_da_categoria(client, auth, ncm_table):
+    client.post("/categories", json={"path": "Bebidas", "ncm": "22030000", "reason": "NCM das bebidas"}, headers=auth)
+    product = new_product(client, auth, category="Bebidas", ncm="82075011")
 
-    res = client.put(f"/identifiers/{identifier_id}", json={"reason": "nada pra mudar"}, headers=trusted_headers)
-    assert res.status_code == 400
+    assert product["ncm"]["code"] == "82075011"
+    assert product["fiscal_data_from_category"] == []
 
 
-def test_category_is_normalized_and_shared(client, trusted_headers):
-    """Categoria e' texto livre na API, mas por baixo dos panos vira uma
-    Category compartilhada (get-or-create por nome) - ver app/changes.py."""
-    p1 = client.post(
-        "/products", json=make_product_payload(category="Pet > Ração Cães"), headers=trusted_headers
-    ).json()
-    p2 = client.post(
-        "/products",
-        json=make_product_payload(ncm="19059090", category="Pet > Ração Cães"),
-        headers=trusted_headers,
-    ).json()
-    assert p1["category"] == "Pet > Ração Cães"
-    assert p2["category"] == "Pet > Ração Cães"
+def test_busca_por_ncm_inclui_produto_que_herda_da_categoria(client, auth):
+    client.post("/categories", json={"path": "Bebidas", "ncm": "22030000", "reason": "NCM das bebidas"}, headers=auth)
+    new_product(client, auth, category="Bebidas")
 
-    db = PublicSession()
-    try:
-        from app.models_public import Category
-
-        assert db.query(Category).filter(Category.name == "Pet > Ração Cães").count() == 1
-    finally:
-        db.close()
+    response = client.get("/products", params={"ncm": "22030000"})
+    assert response.json()["total"] == 1
 
 
-def test_search_by_category(client, trusted_headers):
-    client.post("/products", json=make_product_payload(category="Ferragens"), headers=trusted_headers)
-    client.post(
-        "/products", json=make_product_payload(ncm="19059090", category="Mecânica"), headers=trusted_headers
-    )
-
-    res = client.get("/products", params={"category": "Ferragens"})
-    assert res.status_code == 200
-    body = res.json()
-    assert body["total"] == 1
-    assert body["items"][0]["category"] == "Ferragens"
+def test_busca_por_fabricante_e_texto(client, auth):
+    new_product(client, auth, manufacturer="Tramontina", barcodes=[VALID_BARCODE])
+    assert client.get("/products", params={"manufacturer": "tramon"}).json()["total"] == 1
+    assert client.get("/products", params={"q": VALID_BARCODE}).json()["total"] == 1
+    assert client.get("/products", params={"q": "inexistente"}).json()["total"] == 0
 
 
-def test_update_product_category(client, trusted_headers):
-    product = client.post(
-        "/products", json=make_product_payload(category="Categoria Antiga"), headers=trusted_headers
-    ).json()
+def test_edicao_grava_historico_so_do_que_mudou(client, auth):
+    product = new_product(client, auth, brand="Antiga")
 
-    res = client.put(
+    response = client.put(
         f"/products/{product['id']}",
-        json={"category": "Categoria Nova", "reason": "recategorizando"},
-        headers=trusted_headers,
+        json={"brand": "Nova", "name": product["name"], "barcodes": [OTHER_VALID_BARCODE], "reason": "Corrige marca"},
+        headers=auth,
     )
-    assert res.status_code == 200, res.text
-    assert res.json()["category"] == "Categoria Nova"
+    assert response.status_code == 200, response.text
+    assert sorted(response.json()["changed_fields"]) == ["barcodes", "brand"]
+
+    revisions = client.get(f"/products/{product['id']}/revisions").json()["items"]
+    brand_change = next(revision for revision in revisions if revision["field"] == "brand" and revision["action"] == "update")
+    assert brand_change["old_value"] == "Antiga"
+    assert brand_change["new_value"] == "Nova"
+    assert brand_change["contributor"] == "testador"
 
 
-def test_category_autocomplete(client, trusted_headers):
-    client.post("/products", json=make_product_payload(category="Agropecuária"), headers=trusted_headers)
+def test_preco_medio_e_mediana(client, auth):
+    product = new_product(client, auth)
+    for price in (10.0, 12.0, 100.0):
+        assert client.post(f"/products/{product['id']}/prices", json={"price": price, "uf": "SP"}, headers=auth).status_code == 201
 
-    res = client.get("/categories", params={"q": "agro"})
-    assert res.status_code == 200
-    assert "Agropecuária" in res.json()
-
-
-def test_search_page_size_is_capped(client, trusted_headers):
-    for i in range(12):
-        client.post(
-            "/products",
-            json=make_product_payload(name=f"Produto {i}"),
-            headers=trusted_headers,
-        )
-
-    res = client.get("/products", params={"ncm": "22030000", "limit": 100})
-    assert res.status_code == 200
-    body = res.json()
-    assert body["total"] == 12
-    assert body["limit"] == 10
-    assert len(body["items"]) == 10
+    price = client.get(f"/products/{product['id']}").json()["price"]
+    assert price == {"average": 40.67, "median": 12.0, "reports": 3, "period_in_months": 12}
 
 
-def test_recent_sort_pagination_is_stable_with_tied_created_at(client, trusted_headers):
-    """Import em lote grava tudo com o mesmo created_at - paginacao por
-    offset precisa de um desempate estavel (Product.id) pra nao pular ou
-    repetir produtos entre paginas."""
-    ids = []
-    for i in range(15):
-        res = client.post(
-            "/products",
-            json=make_product_payload(name=f"Produto Recente {i}"),
-            headers=trusted_headers,
-        )
-        ids.append(res.json()["id"])
+def test_regras_fiscais_filtradas_por_uf_e_regime(client, auth, ncm_table):
+    base_rule = {"ncm": "22030000", "valid_from": "2026-01-01", "source": "Teste", "reason": "teste"}
+    client.post("/fiscal-rules", json={**base_rule, "icms_rate": 17}, headers=auth)
+    client.post("/fiscal-rules", json={**base_rule, "uf": "SP", "icms_rate": 18}, headers=auth)
+    client.post("/fiscal-rules", json={**base_rule, "uf": "RJ", "icms_rate": 20}, headers=auth)
+    product = new_product(client, auth, ncm="22030000")
 
-    db = PublicSession()
-    try:
-        db.query(Product).filter(Product.id.in_(ids)).update(
-            {"created_at": datetime(2026, 1, 1)}, synchronize_session=False
-        )
-        db.commit()
-    finally:
-        db.close()
+    rules_sp = client.get(f"/products/{product['id']}", params={"uf": "SP"}).json()["fiscal_rules"]
+    assert [rule["icms_rate"] for rule in rules_sp] == [18, 17]
 
-    seen = []
-    for offset in (0, 10):
-        res = client.get("/products", params={"sort": "recent", "limit": 10, "offset": offset})
-        seen.extend(item["id"] for item in res.json()["items"])
-
-    assert len(seen) == len(set(seen)), "paginacao repetiu produtos entre paginas"
-    assert set(ids) <= set(seen), "paginacao pulou produtos"
+    all_rules = client.get(f"/products/{product['id']}").json()["fiscal_rules"]
+    assert len(all_rules) == 3
 
 
-def test_get_product_not_found(client):
-    res = client.get("/products/prod_doesnotexist")
-    assert res.status_code == 404
+def test_produtos_alterados_desde_uma_data(client, auth):
+    new_product(client, auth)
+    response = client.get("/products/changed", params={"since": "2000-01-01"})
+    assert len(response.json()["items"]) == 1
+
+
+def test_sql_injection_na_busca_nao_quebra_nada(client, auth):
+    new_product(client, auth)
+    response = client.get("/products", params={"q": "' OR 1=1; DROP TABLE products; --"})
+    assert response.status_code == 200
+    assert response.json()["total"] == 0
+    assert client.get("/products").json()["total"] == 1
