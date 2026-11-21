@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 
 # No servidor o site e a API rodam no mesmo processo (ver server.py), então a API está no próprio endereço.
-API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/api").rstrip("/")
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/api/v1").rstrip("/")
 TIMEOUT_IN_SECONDS = 10
 
 

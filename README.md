@@ -26,8 +26,18 @@ São duas partes separadas, que no servidor rodam juntas (`server.py`):
 Endereços no servidor:
 
 - `/` site
-- `/api` API (documentação interativa em `/api/docs`)
-- `/sitemap.xml` e `/robots.txt` para o Google
+- `/api/v1` API (documentação interativa em `/api/v1/docs`)
+- `/sitemap.xml`, `/robots.txt` e `/llms.txt` para buscadores e IAs
+
+## Versões da API
+
+A versão faz parte do endereço (`/api/v1`). Uma versão publicada nunca muda
+de um jeito que quebre quem já usa:
+
+- Pode entrar na v1: campo novo na resposta, rota nova, filtro novo opcional.
+- Não pode entrar na v1: tirar ou renomear campo, mudar formato ou tipo,
+  tornar obrigatório algo que era opcional. Isso vira uma `/api/v2`, montada
+  ao lado em `server.py`, e a v1 continua no ar até ninguém mais usar.
 
 ## Rodar localmente
 
@@ -47,7 +57,7 @@ Dois arquivos SQLite em `data/`:
 
 - `prodbr.sqlite3`: produtos, códigos de barras, categorias, NCM, regras
   fiscais, preços e histórico. É público e pode ser baixado inteiro em
-  `/api/download/prodbr.sqlite3`.
+  `/api/v1/download/prodbr.sqlite3`.
 - `prodbr_community.sqlite3`: contribuidores e tokens. Nunca sai do servidor.
 
 Toda vez que o app inicia (`database/setup.py`), sem nenhum passo manual:
@@ -81,7 +91,7 @@ Wiki. A API avisa com `"in_official_table": false`.
 O acesso é como no Git: um nome de usuário e um token, sem e-mail e senha.
 
 ```bash
-curl -X POST https://SEU-DOMINIO/api/contributors -H 'Content-Type: application/json' \
+curl -X POST https://SEU-DOMINIO/api/v1/contributors -H 'Content-Type: application/json' \
      -d '{"username": "meu_nome"}'
 ```
 

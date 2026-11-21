@@ -70,3 +70,13 @@ def test_endereco_antigo_redireciona(site):
     response = site.get("/view/products/prod_abc", follow_redirects=False)
     assert response.status_code == 301
     assert response.headers["location"] == "/produto/prod_abc"
+
+
+def test_api_fica_na_versao_v1():
+    from fastapi.testclient import TestClient as ServerClient
+    from server import app as server_app
+
+    server = ServerClient(server_app)
+    assert server.get("/api/v1/products").status_code == 200
+    response = server.get("/api/docs", follow_redirects=False)
+    assert response.headers["location"] == "/api/v1/docs"

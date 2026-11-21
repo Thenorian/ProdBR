@@ -15,6 +15,7 @@ prepare_databases()
 app = FastAPI(
     title="ProdBR API",
     version="1.0.0",
+    # Versão da API no endereço: /api/v1. Ver a regra de versões em server.py.
     description=(
         "Base pública e colaborativa de produtos brasileiros, feita para preencher o cadastro "
         "de produtos em ERPs. Pelo código de barras (GET /barcode/{código}) vem tudo de uma vez: "

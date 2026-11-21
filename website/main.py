@@ -33,7 +33,7 @@ templates = Jinja2Templates(directory=SITE_FOLDER / "templates")
 register_filters(templates.env)
 templates.env.globals["ads_snippet"] = os.getenv("ADS_SNIPPET", "")
 # Endereço da API que o navegador usa para salvar alterações. Mesmo domínio por padrão.
-templates.env.globals["public_api_url"] = os.getenv("PUBLIC_API_URL", "/api")
+templates.env.globals["public_api_url"] = os.getenv("PUBLIC_API_URL", "/api/v1")
 
 sitemap_cache = {"xml": None, "created_at": 0.0}
 
@@ -186,7 +186,7 @@ def old_sign_in_addresses():
 
 @app.get("/docs")
 def old_docs_address():
-    return RedirectResponse("/api/docs", status_code=301)
+    return RedirectResponse("/api/v1/docs", status_code=301)
 
 
 @app.get("/license", response_class=PlainTextResponse)
@@ -201,4 +201,4 @@ def data_license_file():
 
 @app.get("/export/sqlite")
 def old_download_address():
-    return RedirectResponse("/api/download/prodbr.sqlite3", status_code=301)
+    return RedirectResponse("/api/v1/download/prodbr.sqlite3", status_code=301)
