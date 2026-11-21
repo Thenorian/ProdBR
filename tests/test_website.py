@@ -80,3 +80,30 @@ def test_api_fica_na_versao_v1():
     assert server.get("/api/v1/products").status_code == 200
     response = server.get("/api/docs", follow_redirects=False)
     assert response.headers["location"] == "/api/v1/docs"
+
+
+def test_robots_libera_robos_de_ia(site):
+    robots = site.get("/robots.txt").text
+    assert "User-agent: ClaudeBot\nAllow: /" in robots
+    assert "User-agent: GPTBot\nAllow: /" in robots
+
+
+def test_llms_txt_explica_a_api_v1(site):
+    response = site.get("/llms.txt")
+    assert response.status_code == 200
+    assert "/api/v1/barcode/" in response.text
+
+
+def test_apoie_sem_chave_configurada(site):
+    assert "não recebe doações" in site.get("/apoie").text
+
+
+def test_enderecos_do_sitemap_antigo_redirecionam(site):
+    for old_address in ("/about", "/view/ncm", "/view/ncm/22030000", "/hall-da-fama", "/docs", "/mod"):
+        assert site.get(old_address, follow_redirects=False).status_code == 301, old_address
+
+
+def test_arquivos_estaticos_levam_a_versao_no_endereco(site):
+    home = site.get("/").text
+    assert '/static/style.css?v=' in home
+    assert '/static/site.js?v=' in home

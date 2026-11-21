@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_copy_button.html" import copy_button %}
+{% block title %}Apoie o ProdBR{% endblock %}
+{% block content %}
+  <div class="narrow">
+    <h1 class="page-title">Apoie o ProdBR</h1>
+    <p>O ProdBR é gratuito e aberto. Doações ajudam a pagar servidor e manutenção.</p>
+
+    {% if donation.enabled %}
+      {% if donation.pix_key %}
+        <section class="panel">
+          <h2 class="panel__title">Pix</h2>
+          <p class="copyable"><span class="code">{{ donation.pix_key }}</span>{{ copy_button(donation.pix_key, "chave Pix") }}</p>
+          {% if donation.pix_holder %}<p class="muted small">Recebedor: <strong>{{ donation.pix_holder }}</strong>. Confira antes de confirmar.</p>{% endif %}
+        </section>
+      {% endif %}
+      {% if donation.url %}
+        <section class="panel">
+          <h2 class="panel__title">Outras formas</h2>
+          <p><a class="button" href="{{ donation.url }}" rel="noopener">{{ donation.url_label }}</a></p>
+        </section>
+      {% endif %}
+    {% else %}
+      <p class="muted">Esta cópia do ProdBR não recebe doações.</p>
+    {% endif %}
+
+    <section class="section">
+      <h2 class="section__title">Ajudar sem gastar nada</h2>
+      <ul>
+        <li><a href="/produto/novo">Cadastre produtos</a> que ainda não estão na base.</li>
+        <li>Use a <a href="/api/v1/docs">API</a> no seu sistema e conte para outras pessoas.</li>
+        <li>Contribua com código no <a href="https://github.com/Thenorian/ProdBR" rel="noopener">GitHub</a>.</li>
+      </ul>
+    </section>
+  </div>
+{% endblock %}

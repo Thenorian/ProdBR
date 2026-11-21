@@ -6,7 +6,7 @@
   <title>{% block title %}ProdBR{% endblock %}</title>
   <meta name="description" content="{% block description %}Base aberta de produtos brasileiros: código de barras, NCM, categoria e informações fiscais.{% endblock %}">
   {% block head %}{% endblock %}
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="{{ static_url('style.css') }}">
 </head>
 <body>
   <header class="site-header">
@@ -22,6 +22,7 @@
         <a class="site-nav__link" href="/produto/novo">Cadastrar</a>
         <a class="site-nav__link" href="/api/v1/docs">API</a>
         <a class="site-nav__link" href="/sobre">Sobre</a>
+        {% if donation.enabled %}<a class="site-nav__link" href="/apoie">Apoie</a>{% endif %}
         <a class="site-nav__link site-nav__link--account" href="/entrar" data-account-link>Entrar</a>
       </nav>
     </div>
@@ -48,7 +49,7 @@
   </footer>
 
   <script>window.PRODBR_API_URL = {{ public_api_url | tojson }};</script>
-  <script src="/static/site.js"></script>
+  <script src="{{ static_url('site.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

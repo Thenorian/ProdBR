@@ -65,21 +65,27 @@ function showSignedInUserInMenu() {
 }
 
 // Botões de copiar (data-copy). Um ouvinte só para a página inteira.
+// Primeiro o jeito que não pede permissão (execCommand). O navigator.clipboard
+// pode ficar travado esperando permissão em alguns navegadores, então fica de reserva.
 async function copyToClipboard(text) {
-  if (navigator.clipboard && window.isSecureContext) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  // Navegador sem a API de área de transferência (ex: página sem https): jeito antigo.
   const hiddenField = document.createElement("textarea");
   hiddenField.value = text;
   hiddenField.setAttribute("readonly", "");
   hiddenField.className = "copy-helper";
   document.body.appendChild(hiddenField);
   hiddenField.select();
-  document.execCommand("copy");
+
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch (error) {
+    copied = false;
+  }
   hiddenField.remove();
+
+  if (!copied) {
+    await navigator.clipboard.writeText(text);
+  }
 }
 
 document.addEventListener("click", async (event) => {
