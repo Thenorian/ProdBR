@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.util.data_util import DataUtil  # noqa: E402
+from util.data_util import DataUtil  # noqa: E402
 from database.database import Database  # noqa: E402
 
 DATABASE_SQL = Path(__file__).resolve().parent.parent / "docs" / "database.sql"

@@ -20,8 +20,13 @@ Métodos disponíveis com self. (ver docstring de cada um em database/adapter/SQ
     create_database, create_table, add_column, table_exists, column_exists, config
 E aqui mesmo: migrate, run_sql_file
 
-Variável de ambiente (opcional):
-    DB_PATH  caminho do arquivo do banco. Padrão: data/prodbr.sqlite3
+São dois bancos, cada um num arquivo:
+    Database           dados públicos (produtos, NCM, fiscal, histórico). Pode ser baixado por qualquer um.
+    CommunityDatabase  quem contribui (usuário, token, reputação). Nunca sai do servidor.
+
+Variáveis de ambiente (opcionais):
+    DB_PATH            arquivo do banco público.     Padrão: data/prodbr.sqlite3
+    COMMUNITY_DB_PATH  arquivo do banco da comunidade. Padrão: data/prodbr_community.sqlite3
 """
 import os
 import re
@@ -33,6 +38,7 @@ load_dotenv()
 from database.adapter.SQLite import SQLite as Data
 
 DEFAULT_DATABASE_PATH = "data/prodbr.sqlite3"
+DEFAULT_COMMUNITY_DATABASE_PATH = "data/prodbr_community.sqlite3"
 
 # Palavras que começam uma linha de CREATE TABLE que não é coluna (chaves, índices, regras).
 NOT_A_COLUMN = ("PRIMARY", "KEY", "INDEX", "UNIQUE", "CONSTRAINT", "FOREIGN", "CHECK", "FULLTEXT", "SPATIAL")
@@ -45,9 +51,9 @@ CREATE_TABLE = re.compile(
 
 class Database(Data):
 
-    def __init__(self):
-        # O caminho do banco vem do .env, por isso Database() não recebe argumentos.
-        super().__init__(path=os.getenv("DB_PATH") or DEFAULT_DATABASE_PATH)
+    def __init__(self, path=None):
+        # O caminho do banco vem do .env, por isso Database() normalmente não recebe argumentos.
+        super().__init__(path=path or os.getenv("DB_PATH") or DEFAULT_DATABASE_PATH)
 
     def migrate(self, path):
         """
@@ -152,6 +158,13 @@ class Database(Data):
             statements.append(statement)
 
         return True, statements
+
+
+class CommunityDatabase(Database):
+    """Banco da comunidade: quem contribui, tokens e reputação. Nunca vai no download público."""
+
+    def __init__(self):
+        super().__init__(path=os.getenv("COMMUNITY_DB_PATH") or DEFAULT_COMMUNITY_DATABASE_PATH)
 
 
 def split_sql(text):

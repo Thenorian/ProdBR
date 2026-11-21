@@ -7,9 +7,6 @@ from database.database import Database
 FINAL_LEVEL = "subitem"
 ONLY_DIGITS = re.compile(r"^[0-9]{2,8}$")
 
-# Limite da subida pela árvore de categorias, para um ciclo (A pai de B, B pai de A)
-# nunca virar um laço infinito.
-MAX_CATEGORY_DEPTH = 20
 
 
 class NcmDB(Database):
@@ -77,77 +74,20 @@ class NcmDB(Database):
             return False, f"Código de NCM inválido: {code!r}"
         return self.select("ncm", where={"code": code}, fetch="one")
 
-    def list_final_codes_under(self, code):
+    def search(self, text, limit, offset):
         """
-        Lista os NCMs finais (8 dígitos, em vigor) que ficam dentro de um código.
+        Busca NCMs finais (8 dígitos) pelo começo do código ou por palavra da descrição.
 
-            list_final_codes_under("2203")      ->  todos os NCMs de cerveja de malte
-            list_final_codes_under("22030000")  ->  só ele mesmo
+            search("2203", 10, 0)     ->  NCMs que começam com 2203
+            search("cerveja", 10, 0)  ->  NCMs com "cerveja" na descrição completa
         """
-        if not ONLY_DIGITS.match(str(code)):
-            return False, f"Código de NCM inválido: {code!r}"
-
-        return self.select(
-            "ncm",
-            ["code", "formatted_code", "description", "full_description"],
-            where={"code": ("LIKE", code + "%"), "level": FINAL_LEVEL, "in_force": True},
-            order_by="code",
-        )
-
-    def suggest_for_category(self, category_id):
+        code_prefix = str(text).replace(".", "").strip()
+        sql = """
+            SELECT code, formatted_code, description, full_description, in_force
+            FROM ncm
+            WHERE level = ? AND (code LIKE ? OR full_description LIKE ?)
+            ORDER BY code
+            LIMIT ? OFFSET ?
         """
-        Descobre o NCM de um produto a partir da categoria dele.
-
-            ok, suggestion = NcmDB().suggest_for_category(category_id)
-            suggestion  ->  {
-                "ncm": "22030000",          # preenchido só quando há exatamente um NCM possível
-                "candidates": [...],        # todos os NCMs finais possíveis para a categoria
-                "linked_code": "2203",      # NCM ligado à categoria (pode ser um grupo)
-                "linked_category_id": "...",# categoria onde a ligação foi achada (ela ou uma acima)
-            }
-
-        Se a categoria não tiver NCM ligado, sobe para a categoria pai até achar.
-        Não altera nenhum produto: quem chama decide se aplica o "ncm".
-        """
-        no_suggestion = {"ncm": None, "candidates": [], "linked_code": None, "linked_category_id": None}
-
-        ok, category = self._find_category_linked_to_ncm(category_id)
-        if not ok:
-            return False, category
-        if category is None:
-            return True, no_suggestion
-
-        ok, candidates = self.list_final_codes_under(category["ncm_code"])
-        if not ok:
-            return False, candidates
-
-        only_one_possible_ncm = len(candidates) == 1
-
-        return True, {
-            "ncm": candidates[0]["code"] if only_one_possible_ncm else None,
-            "candidates": candidates,
-            "linked_code": category["ncm_code"],
-            "linked_category_id": category["id"],
-        }
-
-    def _find_category_linked_to_ncm(self, category_id):
-        """Sobe da categoria para as categorias pai até achar uma com ncm_code."""
-        visited_ids = set()
-        current_id = category_id
-
-        while current_id and current_id not in visited_ids and len(visited_ids) < MAX_CATEGORY_DEPTH:
-            visited_ids.add(current_id)
-
-            ok, category = self.select(
-                "categories", ["id", "parent_id", "ncm_code"], where={"id": current_id}, fetch="one"
-            )
-            if not ok:
-                return False, category
-            if category is None:
-                return True, None
-            if category["ncm_code"]:
-                return True, category
-
-            current_id = category["parent_id"]
-
-        return True, None
+        values = (FINAL_LEVEL, code_prefix + "%", "%" + str(text).strip() + "%", limit, offset)
+        return self.run_sql(sql, values)

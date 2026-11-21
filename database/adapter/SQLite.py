@@ -209,6 +209,46 @@ class SQLite:
         except (ValueError, sqlite3.Error) as error:
             return False, str(error)
 
+    def run_sql(self, sql, values=(), fetch="all"):
+        """
+        Executa um SQL escrito à mão, para consultas que o select não cobre (JOIN, OR, GROUP BY).
+        Os valores vão sempre separados no "?", nunca colados no texto do SQL.
+
+            self.run_sql("SELECT * FROM products WHERE name LIKE ? OR brand LIKE ?", ("%café%", "%café%"))
+            self.run_sql("SELECT COUNT(*) AS total FROM products", fetch="one")
+
+        fetch: "all" (linhas), "one" (uma linha), "rowcount" (linhas afetadas) ou None (nada).
+        """
+        try:
+            return True, self._execute(sql, tuple(values), fetch)
+
+        except sqlite3.Error as error:
+            return False, str(error)
+
+    def run_in_transaction(self, commands):
+        """
+        Executa vários comandos numa transação só: ou todos gravam, ou nenhum grava.
+        Serve para gravar um produto junto com os códigos de barras e o histórico dele.
+
+            self.run_in_transaction([
+                ("INSERT INTO products (id, name) VALUES (?, ?)", (product_id, "Café")),
+                ("INSERT INTO product_barcodes (barcode, product_id) VALUES (?, ?)", ("7891234567895", product_id)),
+            ])
+        """
+        connection = self.connect()
+        try:
+            for sql, values in commands:
+                connection.execute(sql, tuple(values))
+            connection.commit()
+            return True, None
+
+        except sqlite3.Error as error:
+            connection.rollback()
+            return False, str(error)
+
+        finally:
+            connection.close()
+
     def create_database(self):
         """
         No SQLite o banco é um arquivo, criado sozinho na primeira conexão.
