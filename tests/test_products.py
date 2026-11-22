@@ -208,3 +208,16 @@ def test_aliquota_oficial_que_muda_vira_nova_versao(ncm_table):
         {"ipi_rate": 3.9, "valid_from": "2026-01-01", "valid_until": "2026-05-31"},
         {"ipi_rate": 5.0, "valid_from": "2026-06-01", "valid_until": None},
     ]
+
+
+def test_apagar_categoria_so_quando_vazia(client, auth):
+    category = client.post("/categories", json={"path": "Duplicada", "reason": "teste"}, headers=auth).json()
+    new_product(client, auth, category="Duplicada")
+
+    refused = client.request("DELETE", f"/categories/{category['id']}", json={"reason": "limpeza"}, headers=auth)
+    assert refused.status_code == 400
+
+    empty = client.post("/categories", json={"path": "Vazia", "reason": "teste"}, headers=auth).json()
+    deleted = client.request("DELETE", f"/categories/{empty['id']}", json={"reason": "limpeza"}, headers=auth)
+    assert deleted.status_code == 200
+    assert client.get(f"/categories/{empty['id']}").status_code == 404

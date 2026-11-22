@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from api.auth import register_contribution, require_contributor
 from api.common import found_or_404, result_or_error
 from api.rate_limit import limit_reads, limit_writes
-from database.category import CategoryDB
+from database.category import CategoryDB, delete_empty_category
 from util.validation import clean_category_path, clean_cest, clean_ncm
 
 router = APIRouter(tags=["Categorias"])
@@ -73,6 +73,18 @@ def update_category(category_id: str, payload: CategoryChangesInput, contributor
 
     register_contribution(contributor, changed_fields)
     return {"changed_fields": changed_fields, "category": result_or_error(categories.get(category_id), 500)}
+
+
+class DeleteCategoryInput(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=300)
+
+
+@router.delete("/categories/{category_id}", dependencies=[Depends(limit_writes)])
+def delete_category(category_id: str, payload: DeleteCategoryInput, contributor=Depends(require_contributor)):
+    """Apaga uma categoria vazia (sem produtos e sem subcategorias). Fica registrado no histórico."""
+    result_or_error(delete_empty_category(category_id, contributor["username"], payload.reason))
+    register_contribution(contributor, ["category"])
+    return {"deleted": category_id}
 
 
 def clean_category_fiscal_data(payload, sent_fields):

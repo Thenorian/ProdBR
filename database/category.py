@@ -192,3 +192,31 @@ class CategoryDB(Database):
 
 def now_text():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def delete_empty_category(category_id, contributor, reason):
+    """
+    Apaga a categoria só se ela estiver vazia: sem produto e sem subcategoria.
+    Serve para limpar categoria duplicada ou criada por engano. Fica no histórico.
+    """
+    categories = CategoryDB()
+
+    ok, category = categories.select("categories", ["id", "name"], where={"id": category_id}, fetch="one")
+    if not ok:
+        return False, category
+    if category is None:
+        return False, "Categoria não encontrada."
+
+    ok, has_products = categories.exists("products", where={"category_id": category_id})
+    if not ok:
+        return False, has_products
+    ok, has_subcategories = categories.exists("categories", where={"parent_id": category_id})
+    if not ok:
+        return False, has_subcategories
+    if has_products or has_subcategories:
+        return False, "A categoria ainda tem produtos ou subcategorias. Mova eles antes de apagar."
+
+    return categories.run_in_transaction([
+        ("DELETE FROM categories WHERE id = ?", (category_id,)),
+        revision_command("category", category_id, contributor, "delete", reason, "name", category["name"], None),
+    ])
