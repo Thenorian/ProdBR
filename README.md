@@ -64,7 +64,7 @@ Dois arquivos SQLite em `data/`:
 - `prodbr.sqlite3`: produtos, códigos de barras, categorias, NCM, regras
   fiscais, preços e histórico. É público e pode ser baixado inteiro em
   `/api/v1/download/prodbr.sqlite3`.
-- `prodbr_community.sqlite3`: contribuidores e tokens. Nunca sai do servidor.
+- `prodbr_community.sqlite3`: contribuidores, tokens e a fila de votação. Nunca sai do servidor.
 
 Toda vez que o app inicia (`database/setup.py`), sem nenhum passo manual:
 
@@ -117,6 +117,29 @@ curl -X POST https://SEU-DOMINIO/api/v1/contributors -H 'Content-Type: applicati
 O token volta uma única vez. Use no cabeçalho `X-API-Key` para cadastrar
 ou alterar. Toda alteração fica no histórico público com o seu nome.
 A reputação aparece só no site (página Sobre), nunca na API.
+
+### Fila de votação
+
+Quem acabou de se cadastrar é Iniciante. As alterações dele não gravam
+direto: a API responde `202` com `"status": "pending"` e a alteração vai para
+a fila (`GET /api/v1/pending-changes`, ou a página `/fila` do site).
+
+- Vota qualquer contribuidor com conta de mais de 24 horas, menos o autor:
+  `POST /api/v1/pending-changes/{id}/votes` com `{"vote": 1}` (a favor),
+  `-1` (contra) ou `0` (retira o voto).
+- Saldo +3 aplica a alteração em nome do autor. Saldo -3 descarta.
+- Cada voto a favor dá 1 ponto de reputação ao autor, cada voto contra tira 1.
+  Cada campo aplicado na base também vale 1 ponto.
+- Com 50 pontos a pessoa vira Editor e passa a gravar direto.
+- Confiável (ERPs e bots) grava direto. Moderador decide uma alteração da
+  fila sozinho, com um voto. Quem já existia antes da votação ficou confiável.
+
+```bash
+docker exec prodbr python -m scripts.contributor_permission kainan moderador sim
+docker exec prodbr python -m scripts.contributor_permission erp_x confiavel sim
+```
+
+As rotas antigas, sem `/api/v1`, não conhecem a fila: recusam Iniciante com `403`.
 
 ## Produtos dos fabricantes
 

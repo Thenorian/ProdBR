@@ -7,7 +7,7 @@ Leitura é livre e sem chave. Escrita exige o token do contribuidor no cabeçalh
 """
 from fastapi import FastAPI
 
-from api import categories, contributors, download, fiscal, ncm, products, revisions
+from api import categories, contributors, download, fiscal, ncm, pending_changes, products, revisions
 from database.setup import prepare_databases
 from util.daily_update import start_daily_official_update
 
@@ -24,7 +24,9 @@ app = FastAPI(
         "nome, marca, fabricante, NCM, CEST, categoria, preço médio e regras fiscais "
         "(ICMS, IPI, PIS, COFINS, CBS, IBS) por UF e regime tributário.\n\n"
         "Leitura livre, sem chave. Para contribuir, crie um token em POST /contributors e envie no "
-        "cabeçalho X-API-Key. Toda alteração fica no histórico público. "
+        "cabeçalho X-API-Key. Toda alteração fica no histórico público. Contribuidor novo começa "
+        "como Iniciante: as alterações dele respondem 202 e vão para a votação da comunidade "
+        "(GET /pending-changes) até ele ganhar reputação. "
         "Código sob AGPLv3, dados sob ODbL v1.0."
     ),
 )
@@ -34,5 +36,6 @@ app.include_router(categories.router)
 app.include_router(ncm.router)
 app.include_router(fiscal.router)
 app.include_router(revisions.router)
+app.include_router(pending_changes.router)
 app.include_router(contributors.router)
 app.include_router(download.router)

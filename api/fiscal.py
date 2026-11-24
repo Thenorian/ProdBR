@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 from api.auth import register_contribution, require_contributor
 from api.common import found_or_404, result_or_error
 from api.rate_limit import limit_reads, limit_writes
+from api.review_queue import send_to_review
+from database.contributor import can_write_directly
 from database.fiscal import FiscalDB
 from util.validation import clean_cest, clean_ncm, clean_tax_regime, clean_uf
 
@@ -50,24 +52,53 @@ def get_fiscal_rule(rule_id: str):
 
 @router.post("/fiscal-rules", status_code=201, dependencies=[Depends(limit_writes)])
 def create_fiscal_rule(payload: FiscalRuleInput, contributor=Depends(require_contributor)):
+    """Quem ainda é Iniciante recebe 202: a regra vai para a votação (GET /pending-changes)."""
+    check_new_fiscal_rule(payload)
+    if not can_write_directly(contributor):
+        return send_to_review("create_fiscal_rule", None, payload, contributor)
+    return apply_new_fiscal_rule(None, payload, contributor)
+
+
+@router.put("/fiscal-rules/{rule_id}", dependencies=[Depends(limit_writes)])
+def update_fiscal_rule(rule_id: str, payload: FiscalRuleInput, contributor=Depends(require_contributor)):
+    """Quem ainda é Iniciante recebe 202: a alteração vai para a votação (GET /pending-changes)."""
+    check_fiscal_rule_changes(rule_id, payload)
+    if not can_write_directly(contributor):
+        return send_to_review("update_fiscal_rule", rule_id, payload, contributor)
+    return apply_fiscal_rule_changes(rule_id, payload, contributor)
+
+
+def check_new_fiscal_rule(payload):
     data = clean_fiscal_rule_input(payload, payload.model_fields_set)
     for required_field, message in (("ncm_code", "Informe o NCM."), ("valid_from", "Informe valid_from."), ("source", "Informe a fonte (source).")):
         if not data.get(required_field):
             raise HTTPException(status_code=400, detail=message)
+    return data
 
+
+def check_fiscal_rule_changes(rule_id, payload):
+    rule = result_or_error(FiscalDB().get(rule_id), 500)
+    found_or_404(rule, "Regra fiscal não encontrada.")
+
+    changes = clean_fiscal_rule_input(payload, payload.model_fields_set - {"reason"})
+    for required_field in ("ncm_code", "valid_from", "source"):
+        if required_field in changes and not changes[required_field]:
+            raise HTTPException(status_code=400, detail=f"{required_field} não pode ficar vazio.")
+    return changes
+
+
+def apply_new_fiscal_rule(_target_id, payload, contributor):
+    """Grava a regra. Chamado direto pela rota ou quando a votação aprova."""
+    data = check_new_fiscal_rule(payload)
     fiscal = FiscalDB()
     rule_id = result_or_error(fiscal.create(data, contributor["username"], payload.reason))
     register_contribution(contributor, [field for field in data if data[field] is not None])
     return result_or_error(fiscal.get(rule_id), 500)
 
 
-@router.put("/fiscal-rules/{rule_id}", dependencies=[Depends(limit_writes)])
-def update_fiscal_rule(rule_id: str, payload: FiscalRuleInput, contributor=Depends(require_contributor)):
-    changes = clean_fiscal_rule_input(payload, payload.model_fields_set - {"reason"})
-    for required_field in ("ncm_code", "valid_from", "source"):
-        if required_field in changes and not changes[required_field]:
-            raise HTTPException(status_code=400, detail=f"{required_field} não pode ficar vazio.")
-
+def apply_fiscal_rule_changes(rule_id, payload, contributor):
+    """Grava a alteração. Chamado direto pela rota ou quando a votação aprova."""
+    changes = check_fiscal_rule_changes(rule_id, payload)
     fiscal = FiscalDB()
     changed_fields = result_or_error(fiscal.update(rule_id, changes, contributor["username"], payload.reason))
     register_contribution(contributor, changed_fields)

@@ -78,6 +78,12 @@ form.addEventListener("submit", async (event) => {
     return;
   }
 
+  const wentToVoting = result.status === 202;
+  if (wentToVoting) {
+    window.location.href = `/fila#${encodeURIComponent(result.data.pending_change.id)}`;
+    return;
+  }
+
   const savedProductId = isEditing ? productId : result.data.id;
   window.location.href = `/produto/${encodeURIComponent(savedProductId)}`;
 });

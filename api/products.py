@@ -4,7 +4,9 @@ from pydantic import BaseModel, Field
 from api.auth import register_contribution, require_contributor
 from api.common import DEFAULT_PAGE_SIZE, found_or_404, page_limits, result_or_error
 from api.rate_limit import limit_reads, limit_writes
+from api.review_queue import send_to_review
 from database.category import CategoryDB
+from database.contributor import can_write_directly
 from database.product import ProductDB
 from database.revision import RevisionDB
 from util.packaging import VALID_UNITS, read_package_text, standard_unit
@@ -138,10 +140,49 @@ def list_product_revisions(product_id: str, limit: int = DEFAULT_PAGE_SIZE, offs
 
 @router.post("/products", status_code=201, dependencies=[Depends(limit_writes)])
 def create_product(payload: ProductInput, contributor=Depends(require_contributor)):
-    """Cadastra um produto. Só o nome é obrigatório; NCM, CEST e origem vazios vêm da categoria."""
+    """
+    Cadastra um produto. Só o nome é obrigatório; NCM, CEST e origem vazios vêm da categoria.
+    Quem ainda é Iniciante recebe 202: o cadastro vai para a votação (GET /pending-changes).
+    """
+    check_new_product(payload)
+    if not can_write_directly(contributor):
+        return send_to_review("create_product", None, payload, contributor)
+    return apply_new_product(None, payload, contributor)
+
+
+@router.put("/products/{product_id}", dependencies=[Depends(limit_writes)])
+def update_product(product_id: str, payload: ProductInput, contributor=Depends(require_contributor)):
+    """
+    Altera um produto. Mande só os campos que quer mudar; barcodes substitui a lista inteira.
+    Quem ainda é Iniciante recebe 202: a alteração vai para a votação (GET /pending-changes).
+    """
+    check_product_changes(product_id, payload)
+    if not can_write_directly(contributor):
+        return send_to_review("update_product", product_id, payload, contributor)
+    return apply_product_changes(product_id, payload, contributor)
+
+
+def check_new_product(payload):
+    """Confere tudo antes de gravar ou de mandar para a fila, sem criar nada no banco."""
     if not (payload.name or "").strip():
         raise HTTPException(status_code=400, detail="Informe o nome do produto.")
+    clean_product_input(payload, payload.model_fields_set, None, create_category=False)
 
+
+def check_product_changes(product_id, payload):
+    """Confere tudo antes de gravar ou de mandar para a fila, sem criar nada no banco."""
+    product_exists = result_or_error(ProductDB().exists("products", {"id": product_id}), 500)
+    if not product_exists:
+        raise HTTPException(status_code=404, detail="Produto não encontrado.")
+
+    sent_fields = payload.model_fields_set - {"reason"}
+    if "name" in sent_fields and not (payload.name or "").strip():
+        raise HTTPException(status_code=400, detail="O nome do produto não pode ficar vazio.")
+    clean_product_input(payload, sent_fields, None, create_category=False)
+
+
+def apply_new_product(_target_id, payload, contributor):
+    """Grava o produto. Chamado direto pela rota ou quando a votação aprova o cadastro."""
     data, barcodes = clean_product_input(payload, payload.model_fields_set, contributor["username"])
     product_id = result_or_error(ProductDB().create(data, barcodes or [], contributor["username"], payload.reason))
 
@@ -149,13 +190,9 @@ def create_product(payload: ProductInput, contributor=Depends(require_contributo
     return result_or_error(ProductDB().get_full(product_id), 500)
 
 
-@router.put("/products/{product_id}", dependencies=[Depends(limit_writes)])
-def update_product(product_id: str, payload: ProductInput, contributor=Depends(require_contributor)):
-    """Altera um produto. Mande só os campos que quer mudar; barcodes substitui a lista inteira."""
+def apply_product_changes(product_id, payload, contributor):
+    """Grava a alteração. Chamado direto pela rota ou quando a votação aprova a alteração."""
     sent_fields = payload.model_fields_set - {"reason"}
-    if "name" in sent_fields and not (payload.name or "").strip():
-        raise HTTPException(status_code=400, detail="O nome do produto não pode ficar vazio.")
-
     data, barcodes = clean_product_input(payload, sent_fields, contributor["username"])
     changed_fields = result_or_error(
         ProductDB().update(product_id, data, barcodes, contributor["username"], payload.reason)
@@ -179,11 +216,13 @@ def report_price(product_id: str, payload: PriceInput, contributor=Depends(requi
     return {"product_id": product_id, "price": price_cents / 100}
 
 
-def clean_product_input(payload, sent_fields, contributor_username):
+def clean_product_input(payload, sent_fields, contributor_username, create_category=True):
     """
     Valida e converte os campos enviados para as colunas do banco.
     Só entra o que foi enviado, para a edição não apagar o que ficou de fora.
     Devolve (dados, códigos de barras ou None se não foram enviados).
+
+    create_category=False só valida: usado antes de mandar para a fila, quando nada pode ser criado ainda.
     """
     data = {}
     errors = []
@@ -226,7 +265,7 @@ def clean_product_input(payload, sent_fields, contributor_username):
         raise HTTPException(status_code=400, detail=" ".join(errors))
 
     # A categoria é criada só depois de tudo validado, para um erro não deixar categoria sobrando.
-    if "category" in sent_fields:
+    if "category" in sent_fields and create_category:
         data["category_id"] = None
         category_names = clean_category_path(payload.category)
         if category_names:

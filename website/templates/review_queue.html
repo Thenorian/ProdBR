@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Fila de votação · ProdBR{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+  <div class="narrow">
+    <h1 class="page-title">Fila de votação</h1>
+    <p class="muted">Alterações de quem está começando. Com 3 votos a favor entram na base.</p>
+
+    <nav class="queue-tabs" aria-label="Situação">
+      {% for tab_name in tabs %}
+        <a class="queue-tabs__link{% if tab_name == aba %} queue-tabs__link--current{% endif %}" href="/fila?aba={{ tab_name }}">{{ tab_name | capitalize }}</a>
+      {% endfor %}
+    </nav>
+
+    <p class="form__message" data-queue-message role="status"></p>
+
+    {% for change in queue["items"] %}
+      <article class="panel queue-item" id="{{ change.id }}">
+        <h2 class="queue-item__title">
+          {{ change.action | acao_da_fila }}
+          {% if change.target_id and change.action.endswith("_product") %}
+            · <a href="/produto/{{ change.target_id }}">ver o atual</a>
+          {% endif %}
+        </h2>
+
+        <ul class="queue-item__fields">
+          {% for field, value in change.payload.items() %}
+            <li><strong>{{ field | campo }}</strong>: {{ value | valor_proposto | truncate(120) }}</li>
+          {% endfor %}
+        </ul>
+
+        <p class="queue-item__meta">
+          {{ change.contributor }} · {{ change.created_at | data_br }} · {{ change.reason }}
+        </p>
+        {% if change.result_message %}
+          <p class="notice notice--warning">{{ change.result_message }}</p>
+        {% endif %}
+
+        <div class="queue-item__votes">
+          <span class="queue-item__score" title="Saldo de votos">{{ "%+d" | format(change.score) }}</span>
+          {% if change.status == "pending" %}
+            <button class="button" type="button" data-vote="1" data-pending-change="{{ change.id }}">A favor</button>
+            <button class="button button--quiet" type="button" data-vote="-1" data-pending-change="{{ change.id }}">Contra</button>
+          {% endif %}
+        </div>
+      </article>
+    {% else %}
+      <p class="empty">Nada por aqui.</p>
+    {% endfor %}
+
+    {% if page_count > 1 %}
+      <nav class="pagination" aria-label="Páginas">
+        {% if pagina > 1 %}<a class="button" href="/fila?aba={{ aba }}&pagina={{ pagina - 1 }}">Anterior</a>{% endif %}
+        <span class="pagination__current">Página {{ pagina }} de {{ page_count }}</span>
+        {% if pagina < page_count %}<a class="button" href="/fila?aba={{ aba }}&pagina={{ pagina + 1 }}">Próxima</a>{% endif %}
+      </nav>
+    {% endif %}
+  </div>
+{% endblock %}
+{% block scripts %}<script src="{{ static_url('review_queue.js') }}"></script>{% endblock %}

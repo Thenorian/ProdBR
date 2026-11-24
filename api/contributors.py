@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from api.auth import require_contributor
 from api.common import result_or_error
 from api.rate_limit import limit_new_contributors
-from database.contributor import ContributorDB
+from database.contributor import ContributorDB, can_write_directly
 from util.validation import clean_username
 
 router = APIRouter(tags=["Contribuidores"])
@@ -35,5 +35,8 @@ def create_another_token(contributor=Depends(require_contributor)):
 
 @router.get("/contributors/me")
 def who_am_i(contributor=Depends(require_contributor)):
-    """Confere se o token vale e diz de quem ele é."""
-    return {"username": contributor["username"]}
+    """
+    Confere se o token vale e diz de quem ele é.
+    changes_need_votes=true: as suas alterações ainda passam pela votação da comunidade.
+    """
+    return {"username": contributor["username"], "changes_need_votes": not can_write_directly(contributor)}

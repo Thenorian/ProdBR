@@ -1,4 +1,5 @@
 """Textos e formatos usados nas páginas: datas, dinheiro e os nomes em português dos códigos."""
+from database.contributor import contributor_level
 
 ORIGIN_NAMES = {
     0: "Nacional",
@@ -32,20 +33,24 @@ FIELD_NAMES = {
     "commercial_unit": "Unidade",
     "source": "Fonte",
     "barcodes": "Códigos de barras",
+    "category": "Categoria",
+    "path": "Categoria",
     "uf": "UF",
     "tax_regime": "Regime",
 }
 
 ACTION_NAMES = {"create": "criou", "update": "alterou", "delete": "removeu"}
 
-# Níveis públicos de contribuidor, pela quantidade de campos alterados.
-CONTRIBUTOR_LEVELS = (
-    (1_000_000, "Supremo"),
-    (10_000, "Mestre"),
-    (1_000, "Renomado"),
-    (100, "Editor"),
-    (0, "Iniciante"),
-)
+PENDING_ACTION_NAMES = {
+    "create_product": "Novo produto",
+    "update_product": "Alteração de produto",
+    "create_fiscal_rule": "Nova regra fiscal",
+    "update_fiscal_rule": "Alteração de regra fiscal",
+    "create_category": "Nova categoria",
+    "update_category": "Alteração de categoria",
+    "delete_category": "Apagar categoria",
+}
+
 
 
 def brazilian_date(value):
@@ -101,13 +106,6 @@ def action_name(action):
     return ACTION_NAMES.get(action, action)
 
 
-def contributor_level(edit_count):
-    for minimum_edits, level in CONTRIBUTOR_LEVELS:
-        if (edit_count or 0) >= minimum_edits:
-            return level
-    return "Iniciante"
-
-
 def group_revisions(revisions):
     """
     O histórico tem uma linha por campo. Para mostrar, junta as linhas da mesma alteração
@@ -137,6 +135,24 @@ def group_revisions(revisions):
     return groups
 
 
+def pending_action_name(action):
+    return PENDING_ACTION_NAMES.get(action, action)
+
+
+def proposed_value(value):
+    """
+    Valor que alguém propôs na fila, em texto.
+
+        None                                              ->  "vazio"
+        ["7891000100103", {"barcode": "7896...", ...}]    ->  "7891000100103, 7896..."
+    """
+    if value is None or value == "":
+        return "vazio"
+    if isinstance(value, list):
+        return ", ".join(item["barcode"] if isinstance(item, dict) else str(item) for item in value) or "vazio"
+    return str(value)
+
+
 def register_filters(jinja_environment):
     jinja_environment.filters["agrupar"] = group_revisions
     jinja_environment.filters["data_br"] = brazilian_date
@@ -148,3 +164,5 @@ def register_filters(jinja_environment):
     jinja_environment.filters["campo"] = field_name
     jinja_environment.filters["acao"] = action_name
     jinja_environment.filters["nivel"] = contributor_level
+    jinja_environment.filters["acao_da_fila"] = pending_action_name
+    jinja_environment.filters["valor_proposto"] = proposed_value

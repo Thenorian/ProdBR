@@ -17,6 +17,7 @@ from api.auth import register_contribution, require_contributor
 from api.common import DEFAULT_PAGE_SIZE, found_or_404, page_limits, result_or_error
 from api.products import BarcodeInput, ProductInput, clean_barcode_input, clean_product_input
 from api.rate_limit import limit_reads, limit_writes
+from database.contributor import can_write_directly
 from database.ncm import NcmDB
 from database.product import ProductDB
 from util.validation import clean_ncm
@@ -99,6 +100,7 @@ def old_get_product(product_id: str):
 
 @router.post("/products", status_code=201, dependencies=[Depends(limit_writes)])
 def old_create_product(payload: ProductInput, contributor=Depends(require_contributor)):
+    refuse_contributor_without_direct_write(contributor)
     if not (payload.name or "").strip():
         raise HTTPException(status_code=400, detail="Informe o nome do produto.")
 
@@ -110,6 +112,7 @@ def old_create_product(payload: ProductInput, contributor=Depends(require_contri
 
 @router.put("/products/{product_id}", dependencies=[Depends(limit_writes)])
 def old_update_product(product_id: str, payload: ProductInput, contributor=Depends(require_contributor)):
+    refuse_contributor_without_direct_write(contributor)
     sent_fields = payload.model_fields_set - {"reason"}
     data, barcodes = clean_product_input(payload, sent_fields, contributor["username"])
     changed_fields = result_or_error(
@@ -121,6 +124,7 @@ def old_update_product(product_id: str, payload: ProductInput, contributor=Depen
 
 @router.post("/identifiers", status_code=201, dependencies=[Depends(limit_writes)])
 def old_create_identifier(payload: OldIdentifierInput, contributor=Depends(require_contributor)):
+    refuse_contributor_without_direct_write(contributor)
     """Na API antiga o código de barras era cadastrado à parte; aqui ele entra na lista do produto."""
     products = ProductDB()
     product = full_product_or_404(payload.product_id)
@@ -144,6 +148,15 @@ def old_create_identifier(payload: OldIdentifierInput, contributor=Depends(requi
 
     register_contribution(contributor, changed_fields)
     return {"id": payload.value.strip(), "type": payload.type, "value": payload.value.strip()}
+
+
+def refuse_contributor_without_direct_write(contributor):
+    """A API antiga não conhece a fila de votação. Quem ainda é Iniciante usa a /api/v1."""
+    if not can_write_directly(contributor):
+        raise HTTPException(
+            status_code=403,
+            detail="Contribuidor novo usa a API /api/v1, onde as alterações passam pela votação da comunidade.",
+        )
 
 
 @router.get("/ncm/{code}", dependencies=[Depends(limit_reads)])

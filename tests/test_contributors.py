@@ -3,8 +3,11 @@ def test_cria_contribuidor_e_token_funciona(client):
     assert response.status_code == 201
     token = response.json()["token"]
 
+    response = client.get("/contributors/me", headers={"X-API-Key": token})
+    assert response.json() == {"username": "maria", "changes_need_votes": True}
+
     response = client.post("/products", json={"name": "Produto", "reason": "teste"}, headers={"X-API-Key": token})
-    assert response.status_code == 201
+    assert response.status_code == 202
 
 
 def test_nome_repetido_e_recusado(client):

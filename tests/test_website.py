@@ -107,3 +107,21 @@ def test_arquivos_estaticos_levam_a_versao_no_endereco(site):
     home = site.get("/").text
     assert '/static/style.css?v=' in home
     assert '/static/site.js?v=' in home
+
+
+def test_fila_mostra_alteracao_pendente_com_botoes_de_voto(site, client, beginner_auth):
+    response = client.post(
+        "/products", json={"name": "<b>Café</b> Novo", "barcodes": ["7891000100103"], "reason": "produto novo"},
+        headers=beginner_auth,
+    )
+    pending_change_id = response.json()["pending_change"]["id"]
+
+    page = site.get("/fila")
+    assert page.status_code == 200
+    assert "Novo produto" in page.text
+    assert "&lt;b&gt;Café&lt;/b&gt; Novo" in page.text
+    assert "7891000100103" in page.text
+    assert f'data-pending-change="{pending_change_id}"' in page.text
+
+    assert "Nada por aqui" in site.get("/fila?aba=aprovadas").text
+    assert site.get("/fila?aba=inventada").status_code == 404

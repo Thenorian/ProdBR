@@ -44,7 +44,7 @@ GET /api/v1/categories</pre>
             {% for contributor in ranking %}
               <tr>
                 <td data-label="Usuário"><strong>{{ contributor.username }}</strong></td>
-                <td data-label="Nível">{{ contributor.edit_count | nivel }}</td>
+                <td data-label="Nível">{{ contributor.reputation | nivel }}</td>
                 <td data-label="Edições">{{ contributor.edit_count }}</td>
                 <td data-label="Desde">{{ contributor.created_at | data_br }}</td>
               </tr>

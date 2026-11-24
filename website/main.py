@@ -144,6 +144,27 @@ def edit_product_form(request: Request, product_id: str):
     return page(request, "product_form.html", product=product)
 
 
+QUEUE_TABS = {"pendentes": "pending", "aprovadas": "approved", "descartadas": "rejected", "falharam": "failed"}
+
+
+@app.get("/fila", response_class=HTMLResponse)
+def review_queue(request: Request, aba: str = "pendentes", pagina: int = 1):
+    """Alterações de quem ainda é Iniciante, esperando os votos da comunidade."""
+    status = QUEUE_TABS.get(aba)
+    if status is None:
+        return error_page(request, 404, "Aba não encontrada.")
+
+    pagina = max(1, pagina)
+    api_status, queue = get_from_api(
+        ["pending-changes"], {"status": status, "limit": RESULTS_PER_PAGE, "offset": (pagina - 1) * RESULTS_PER_PAGE}
+    )
+    if api_status != 200:
+        return error_page(request, api_status, queue.get("detail", "Erro ao carregar a fila."))
+
+    page_count = max(1, -(-queue["total"] // RESULTS_PER_PAGE))
+    return page(request, "review_queue.html", queue=queue, aba=aba, tabs=QUEUE_TABS, pagina=pagina, page_count=page_count)
+
+
 @app.get("/entrar", response_class=HTMLResponse)
 def sign_in(request: Request):
     return page(request, "sign_in.html")
@@ -278,7 +299,7 @@ def old_hall_of_fame_address():
 @app.get("/mod")
 @app.get("/admin")
 def old_moderation_addresses():
-    return RedirectResponse("/", status_code=301)
+    return RedirectResponse("/fila", status_code=301)
 
 
 @app.get("/login")

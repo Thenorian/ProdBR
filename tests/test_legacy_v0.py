@@ -2,6 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from database.contributor import ContributorDB
 from server import app as server_app
 
 BARCODE = "7891000100103"
@@ -14,7 +15,9 @@ def server():
 
 @pytest.fixture
 def old_auth(server):
+    """Os sistemas instalados usam tokens que já existiam antes da votação: são confiáveis."""
     token = server.post("/api/v1/contributors", json={"username": "os_mechanical"}).json()["token"]
+    ContributorDB().update("contributors", {"trusted": 1}, where={"username": "os_mechanical"})
     return {"X-API-Key": token}
 
 
@@ -59,3 +62,10 @@ def test_ncm_pela_rota_antiga(server, ncm_table):
 
 def test_rota_antiga_exige_token_para_escrever(server):
     assert server.post("/products", json={"name": "X", "reason": "teste"}).status_code == 401
+
+
+def test_rota_antiga_recusa_iniciante(server):
+    token = server.post("/api/v1/contributors", json={"username": "novato"}).json()["token"]
+    response = server.post("/products", json={"name": "X", "reason": "teste"}, headers={"X-API-Key": token})
+    assert response.status_code == 403
+    assert "/api/v1" in response.json()["detail"]
