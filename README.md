@@ -118,6 +118,22 @@ O token volta uma única vez. Use no cabeçalho `X-API-Key` para cadastrar
 ou alterar. Toda alteração fica no histórico público com o seu nome.
 A reputação aparece só no site (página Sobre), nunca na API.
 
+### Empresas
+
+Perfil de empresa no estilo Wikipedia: qualquer pessoa cadastra e completa
+(`POST`/`PUT /api/v1/companies`, ou as páginas `/empresas` e `/empresa/{id}` do
+site). Só o nome é obrigatório; CNPJ, razão social, site, telefone, endereço e
+marcas são opcionais. O CNPJ, quando vem, é conferido e não se repete.
+
+Os produtos aparecem no perfil (`GET /api/v1/companies/{id}/products`) quando:
+
+1. o produto aponta para a empresa (`company_id`), ou, se não aponta,
+2. a marca do produto é uma das marcas da empresa, ou
+3. o fabricante do produto tem o nome da empresa.
+
+O produto traz o campo `company` com `linked_by` dizendo qual dos três foi.
+Cadastrar e alterar empresa também passa pela fila de votação.
+
 ### Fila de votação
 
 Quem acabou de se cadastrar é Iniciante. As alterações dele não gravam

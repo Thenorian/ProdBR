@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
-from api import categories, fiscal, products
+from api import categories, companies, fiscal, products
 from api.auth import require_contributor
 from api.common import DEFAULT_PAGE_SIZE, found_or_404, page_limits, result_or_error
 from api.rate_limit import limit_reads, limit_writes
@@ -39,6 +39,8 @@ ACTIONS = {
     "create_category": (categories.NewCategoryInput, categories.apply_new_category),
     "update_category": (categories.CategoryChangesInput, categories.apply_category_changes),
     "delete_category": (categories.DeleteCategoryInput, categories.apply_category_deletion),
+    "create_company": (companies.CompanyInput, companies.apply_new_company),
+    "update_company": (companies.CompanyInput, companies.apply_company_changes),
 }
 
 

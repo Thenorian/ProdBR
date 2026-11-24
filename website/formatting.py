@@ -37,6 +37,14 @@ FIELD_NAMES = {
     "path": "Categoria",
     "uf": "UF",
     "tax_regime": "Regime",
+    "company_id": "Empresa",
+    "legal_name": "Razão social",
+    "cnpj": "CNPJ",
+    "website": "Site",
+    "phone": "Telefone",
+    "address": "Endereço",
+    "city": "Cidade",
+    "brands": "Marcas",
 }
 
 ACTION_NAMES = {"create": "criou", "update": "alterou", "delete": "removeu"}
@@ -49,6 +57,8 @@ PENDING_ACTION_NAMES = {
     "create_category": "Nova categoria",
     "update_category": "Alteração de categoria",
     "delete_category": "Apagar categoria",
+    "create_company": "Nova empresa",
+    "update_company": "Alteração de empresa",
 }
 
 
@@ -135,6 +145,13 @@ def group_revisions(revisions):
     return groups
 
 
+def formatted_cnpj(cnpj):
+    """ "60409075000152" -> "60.409.075/0001-52" """
+    if not cnpj or len(cnpj) != 14:
+        return cnpj or ""
+    return f"{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:]}"
+
+
 def pending_action_name(action):
     return PENDING_ACTION_NAMES.get(action, action)
 
@@ -165,4 +182,5 @@ def register_filters(jinja_environment):
     jinja_environment.filters["acao"] = action_name
     jinja_environment.filters["nivel"] = contributor_level
     jinja_environment.filters["acao_da_fila"] = pending_action_name
+    jinja_environment.filters["cnpj"] = formatted_cnpj
     jinja_environment.filters["valor_proposto"] = proposed_value

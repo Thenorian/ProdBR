@@ -65,6 +65,41 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories (parent_id);
 
 
+-- Empresa, como um ponto no Google Maps ou um verbete da Wikipedia: qualquer pessoa
+-- cadastra e completa o perfil, e tudo fica no histórico (entity_type 'company').
+-- Só o nome é obrigatório. CNPJ é opcional, mas não se repete (índice único só para quem tem).
+-- O produto aponta para a empresa em products.company_id. Sem isso, a empresa ainda
+-- é achada pela marca (company_brands) ou pelo fabricante com o mesmo nome.
+CREATE TABLE IF NOT EXISTS companies (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    legal_name VARCHAR(200) NULL,
+    cnpj VARCHAR(14) NULL,
+    description VARCHAR(2000) NULL,
+    website VARCHAR(255) NULL,
+    phone VARCHAR(30) NULL,
+    address VARCHAR(255) NULL,
+    city VARCHAR(120) NULL,
+    uf CHAR(2) NULL,
+    source VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_cnpj ON companies (cnpj) WHERE cnpj IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_companies_name ON companies (name COLLATE NOCASE);
+
+
+-- Marcas de cada empresa. Ex: Nestlé -> Nescau, Ninho, Moça.
+CREATE TABLE IF NOT EXISTS company_brands (
+    company_id CHAR(36) NOT NULL REFERENCES companies (id),
+    brand VARCHAR(120) NOT NULL,
+    PRIMARY KEY (company_id, brand)
+);
+
+CREATE INDEX IF NOT EXISTS idx_company_brands_brand ON company_brands (brand COLLATE NOCASE);
+
+
 -- O produto é o centro de tudo. Tudo que um ERP precisa para preencher o cadastro
 -- vem daqui ou das tabelas ligadas a ele (códigos de barras, NCM, fiscal, preço).
 -- NCM é opcional e sem FK: é uma Wiki, então aceita produto sem NCM ou com um NCM
@@ -83,10 +118,13 @@ CREATE TABLE IF NOT EXISTS products (
     commercial_unit VARCHAR(10) NOT NULL DEFAULT 'UN',
     source VARCHAR(255) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    company_id CHAR(36) NULL REFERENCES companies (id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_products_ncm_code ON products (ncm_code);
+CREATE INDEX IF NOT EXISTS idx_products_company_id ON products (company_id);
+CREATE INDEX IF NOT EXISTS idx_products_brand ON products (brand COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS idx_products_manufacturer ON products (manufacturer);
 CREATE INDEX IF NOT EXISTS idx_products_manufacturer_code ON products (manufacturer_code);
 CREATE INDEX IF NOT EXISTS idx_products_category_id ON products (category_id);

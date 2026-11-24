@@ -2,13 +2,14 @@ import statistics
 from uuid import uuid4
 
 from database.category import CategoryDB, now_text
+from database.company import CompanyDB
 from database.database import Database
 from database.fiscal import FiscalDB, summarize_fiscal_rules
 from database.revision import revision_command
 
 PRODUCT_FIELDS = (
     "name", "brand", "manufacturer", "manufacturer_code", "description",
-    "category_id", "ncm_code", "cest", "origin", "commercial_unit", "source",
+    "category_id", "ncm_code", "cest", "origin", "commercial_unit", "source", "company_id",
 )
 
 BARCODE_FIELDS = ("barcode", "package_description", "net_quantity", "net_unit", "units_per_pack")
@@ -36,6 +37,8 @@ class ProductDB(Database):
         (ou da categoria acima). A lista "fiscal_data_from_category" diz o que veio de lá.
         As regras fiscais são as do NCM que estiver valendo, filtradas por uf e regime se informados.
         "fiscal_summary" junta as regras campo a campo (ICMS da UF + IPI/II oficiais): é o que o ERP usa.
+        "company" é a empresa do produto: a ligada direto (company_id) ou, sem ela, a dona da marca
+        ou a que tem o nome do fabricante (o campo linked_by diz qual foi).
         """
         ok, product = self.select("products", where={"id": product_id}, fetch="one")
         if not ok or product is None:
@@ -69,12 +72,17 @@ class ProductDB(Database):
             if not ok:
                 return False, fiscal_rules
 
+        ok, company = CompanyDB().find_for_product(product["company_id"], product["brand"], product["manufacturer"])
+        if not ok:
+            return False, company
+
         return True, {
             "id": product["id"],
             "name": product["name"],
             "brand": product["brand"],
             "manufacturer": product["manufacturer"],
             "manufacturer_code": product["manufacturer_code"],
+            "company": company,
             "description": product["description"],
             "barcodes": barcodes,
             "category": category and {"id": category["id"], "path": category["path"]},

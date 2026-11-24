@@ -20,6 +20,8 @@
           {{ change.action | acao_da_fila }}
           {% if change.target_id and change.action.endswith("_product") %}
             · <a href="/produto/{{ change.target_id }}">ver o atual</a>
+          {% elif change.target_id and change.action.endswith("_company") %}
+            · <a href="/empresa/{{ change.target_id }}">ver o atual</a>
           {% endif %}
         </h2>
 

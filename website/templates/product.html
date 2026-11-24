@@ -65,6 +65,10 @@
           <dt>Fabricante</dt>
           <dd><span class="copyable">{{ product.manufacturer }}{{ copy_button(product.manufacturer, "fabricante") }}</span></dd>
         {% endif %}
+        {% if product.company %}
+          <dt>Empresa</dt>
+          <dd><a href="/empresa/{{ product.company.id }}">{{ product.company.name }}</a></dd>
+        {% endif %}
         {% if product.manufacturer_code %}
           <dt>Código do fabricante</dt>
           <dd><span class="copyable"><span class="code">{{ product.manufacturer_code }}</span>{{ copy_button(product.manufacturer_code, "código do fabricante") }}</span></dd>

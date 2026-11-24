@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Empresas · ProdBR{% endblock %}
+{% block content %}
+  <div class="article-header">
+    <h1 class="page-title">Empresas</h1>
+    <a class="button button--primary" href="/empresa/nova">Cadastrar empresa</a>
+  </div>
+
+  <form class="filters" action="/empresas" method="get" role="search">
+    <input class="field__input" type="search" name="q" value="{{ q }}" placeholder="Nome, CNPJ ou marca" aria-label="Buscar empresa">
+    <button class="button" type="submit">Buscar</button>
+  </form>
+
+  <p class="muted">{{ results.total }} empresa{{ "s" if results.total != 1 }}</p>
+
+  {% if results["items"] %}
+    <ul class="product-list">
+      {% for company in results["items"] %}
+        <li class="product-list__item">
+          <a class="product-list__name" href="/empresa/{{ company.id }}">{{ company.name }}</a>
+          <div class="product-list__details">
+            {% if company.legal_name %}<span>{{ company.legal_name }}</span>{% endif %}
+            {% if company.cnpj %}<span class="code">{{ company.cnpj | cnpj }}</span>{% endif %}
+            {% if company.city or company.uf %}<span>{{ [company.city, company.uf] | select | join(" / ") }}</span>{% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">Nenhuma empresa. <a href="/empresa/nova">Cadastrar</a></p>
+  {% endif %}
+
+  {% if page_count > 1 %}
+    <nav class="pagination" aria-label="Páginas">
+      {% if pagina > 1 %}<a class="button" href="/empresas?q={{ q | urlencode }}&pagina={{ pagina - 1 }}">Anterior</a>{% endif %}
+      <span class="pagination__current">Página {{ pagina }} de {{ page_count }}</span>
+      {% if pagina < page_count %}<a class="button" href="/empresas?q={{ q | urlencode }}&pagina={{ pagina + 1 }}">Próxima</a>{% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

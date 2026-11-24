@@ -7,7 +7,7 @@ Leitura é livre e sem chave. Escrita exige o token do contribuidor no cabeçalh
 """
 from fastapi import FastAPI
 
-from api import categories, contributors, download, fiscal, ncm, pending_changes, products, revisions
+from api import categories, companies, contributors, download, fiscal, ncm, pending_changes, products, revisions
 from database.setup import prepare_databases
 from util.daily_update import start_daily_official_update
 
@@ -33,6 +33,7 @@ app = FastAPI(
 
 app.include_router(products.router)
 app.include_router(categories.router)
+app.include_router(companies.router)
 app.include_router(ncm.router)
 app.include_router(fiscal.router)
 app.include_router(revisions.router)

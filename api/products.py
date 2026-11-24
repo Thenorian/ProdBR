@@ -6,6 +6,7 @@ from api.common import DEFAULT_PAGE_SIZE, found_or_404, page_limits, result_or_e
 from api.rate_limit import limit_reads, limit_writes
 from api.review_queue import send_to_review
 from database.category import CategoryDB
+from database.company import CompanyDB
 from database.contributor import can_write_directly
 from database.product import ProductDB
 from database.revision import RevisionDB
@@ -34,6 +35,10 @@ class ProductInput(BaseModel):
     brand: str | None = Field(None, max_length=120)
     manufacturer: str | None = Field(None, max_length=120)
     manufacturer_code: str | None = Field(None, max_length=60, description="Código interno do fabricante. Ex: BPR6ES")
+    company_id: str | None = Field(
+        None, max_length=36,
+        description="Id da empresa dona do produto (GET /companies). Vazio = a empresa é achada pela marca ou fabricante.",
+    )
     description: str | None = Field(None, max_length=2000)
     category: str | None = Field(None, max_length=600, description='Caminho da categoria. Ex: "Bebidas > Cervejas"')
     barcodes: list[str | BarcodeInput] | None = Field(
@@ -250,6 +255,11 @@ def clean_product_input(payload, sent_fields, contributor_username, create_categ
         data["cest"] = clean_cest(payload.cest) if payload.cest else None
         if payload.cest and not data["cest"]:
             errors.append("CEST inválido: use 7 dígitos.")
+
+    if "company_id" in sent_fields:
+        data["company_id"] = text_or_none(payload.company_id)
+        if data["company_id"] and not result_or_error(CompanyDB().exists("companies", {"id": data["company_id"]}), 500):
+            errors.append("Empresa não encontrada (company_id).")
 
     barcodes = None
     if "barcodes" in sent_fields:

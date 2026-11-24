@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ "Editar " ~ company.name if company else "Cadastrar empresa" }} · ProdBR{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+  <h1 class="page-title">{{ "Editar empresa" if company else "Cadastrar empresa" }}</h1>
+
+  <div class="notice notice--warning" data-needs-token hidden>
+    Para salvar, você precisa de um token. <a href="/entrar">Entrar</a>
+  </div>
+
+  <form class="form" data-company-form data-company-id="{{ company.id if company else '' }}">
+    <fieldset class="form__group">
+      <legend class="form__legend">Empresa</legend>
+      <label class="field">
+        <span class="field__label">Nome *</span>
+        <input class="field__input" name="name" required maxlength="200" value="{{ company.name if company else '' }}">
+      </label>
+      <label class="field">
+        <span class="field__label">Marcas (uma por linha)</span>
+        <textarea class="field__input" name="brands" rows="3">{{ company.brands | join("\n") if company else '' }}</textarea>
+      </label>
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Razão social</span>
+          <input class="field__input" name="legal_name" maxlength="200" value="{{ company.legal_name or '' if company else '' }}">
+        </label>
+        <label class="field">
+          <span class="field__label">CNPJ</span>
+          <input class="field__input" name="cnpj" maxlength="18" inputmode="numeric" value="{{ company.cnpj | cnpj if company else '' }}">
+        </label>
+      </div>
+      <label class="field">
+        <span class="field__label">Descrição</span>
+        <textarea class="field__input" name="description" rows="3" maxlength="2000">{{ company.description or '' if company else '' }}</textarea>
+      </label>
+    </fieldset>
+
+    <fieldset class="form__group">
+      <legend class="form__legend">Contato e endereço</legend>
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Site</span>
+          <input class="field__input" name="website" type="url" maxlength="255" placeholder="https://" value="{{ company.website or '' if company else '' }}">
+        </label>
+        <label class="field">
+          <span class="field__label">Telefone</span>
+          <input class="field__input" name="phone" maxlength="30" value="{{ company.phone or '' if company else '' }}">
+        </label>
+      </div>
+      <label class="field">
+        <span class="field__label">Endereço</span>
+        <input class="field__input" name="address" maxlength="255" value="{{ company.address or '' if company else '' }}">
+      </label>
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Cidade</span>
+          <input class="field__input" name="city" maxlength="120" value="{{ company.city or '' if company else '' }}">
+        </label>
+        <label class="field">
+          <span class="field__label">UF</span>
+          <input class="field__input" name="uf" maxlength="2" value="{{ company.uf or '' if company else '' }}">
+        </label>
+      </div>
+      <label class="field">
+        <span class="field__label">Fonte</span>
+        <input class="field__input" name="source" maxlength="255" placeholder="Ex: site da empresa" value="{{ company.source or '' if company else '' }}">
+      </label>
+    </fieldset>
+
+    <label class="field">
+      <span class="field__label">Motivo da alteração *</span>
+      <input class="field__input" name="reason" required minlength="3" maxlength="300"
+             placeholder="{{ 'Ex: adiciona marcas' if company else 'Ex: cadastro pelo site da empresa' }}">
+    </label>
+
+    <p class="form__message" data-form-message role="status"></p>
+
+    <div class="form__actions">
+      <button class="button button--primary" type="submit">Salvar</button>
+      <a class="button button--quiet" href="{{ '/empresa/' ~ company.id if company else '/empresas' }}">Cancelar</a>
+    </div>
+  </form>
+{% endblock %}
+{% block scripts %}<script src="{{ static_url('company_form.js') }}"></script>{% endblock %}

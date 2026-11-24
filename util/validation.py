@@ -93,3 +93,51 @@ def clean_category_path(category_path):
     names = [" ".join(name.split()) for name in str(category_path or "").split(">")]
     names = [name[:150] for name in names if name]
     return names or None
+
+
+CNPJ_FIRST_CHECK_WEIGHTS = (5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2)
+CNPJ_SECOND_CHECK_WEIGHTS = (6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2)
+WEBSITE_FORMAT = re.compile(r"^https?://[^\s<>\"']{3,240}$", re.IGNORECASE)
+PHONE_FORMAT = re.compile(r"^[0-9 ()+\-]{8,30}$")
+
+
+def clean_cnpj(cnpj):
+    """
+    CNPJ só com os 14 dígitos, conferindo os dois dígitos verificadores.
+
+        clean_cnpj("11.222.333/0001-81")  ->  "11222333000181"
+        clean_cnpj("11.222.333/0001-82")  ->  None  (dígito verificador errado)
+    """
+    digits = "".join(character for character in str(cnpj or "") if character.isdigit())
+    if len(digits) != 14 or digits == digits[0] * 14:
+        return None
+
+    first_check_digit = cnpj_check_digit(digits[:12], CNPJ_FIRST_CHECK_WEIGHTS)
+    second_check_digit = cnpj_check_digit(digits[:12] + str(first_check_digit), CNPJ_SECOND_CHECK_WEIGHTS)
+    if digits[12:] != f"{first_check_digit}{second_check_digit}":
+        return None
+
+    return digits
+
+
+def cnpj_check_digit(digits, weights):
+    remainder = sum(int(digit) * weight for digit, weight in zip(digits, weights)) % 11
+    return 0 if remainder < 2 else 11 - remainder
+
+
+def clean_website(website):
+    """
+    Só endereço http ou https. Isso impede que um link "javascript:..." vire código
+    rodando na página de quem clicar.
+
+        clean_website("https://www.nestle.com.br")  ->  "https://www.nestle.com.br"
+        clean_website("javascript:alert(1)")        ->  None
+    """
+    website = str(website or "").strip()
+    return website if WEBSITE_FORMAT.match(website) else None
+
+
+def clean_phone(phone):
+    """ clean_phone("(11) 3456-7890") -> "(11) 3456-7890". Só dígitos, espaço, parênteses, + e hífen. """
+    phone = " ".join(str(phone or "").split())
+    return phone if PHONE_FORMAT.match(phone) else None

@@ -125,3 +125,32 @@ def test_fila_mostra_alteracao_pendente_com_botoes_de_voto(site, client, beginne
 
     assert "Nada por aqui" in site.get("/fila?aba=aprovadas").text
     assert site.get("/fila?aba=inventada").status_code == 404
+
+
+def test_perfil_da_empresa_lista_marcas_e_produtos(site, client, auth):
+    company = client.post(
+        "/companies",
+        json={"name": "<i>Nestlé</i>", "cnpj": "60409075000152", "brands": ["Nescau"], "website": "https://www.nestle.com.br", "reason": "nova"},
+        headers=auth,
+    ).json()
+    product = client.post("/products", json={"name": "Achocolatado", "brand": "Nescau", "reason": "teste"}, headers=auth).json()
+
+    page = site.get(f"/empresa/{company['id']}")
+    assert page.status_code == 200
+    assert "&lt;i&gt;Nestlé&lt;/i&gt;" in page.text
+    assert "60.409.075/0001-52" in page.text
+    assert f'href="/produto/{product["id"]}"' in page.text
+    assert 'href="https://www.nestle.com.br"' in page.text
+
+    product_page = site.get(f"/produto/{product['id']}")
+    assert f'href="/empresa/{company["id"]}"' in product_page.text
+
+    website_main.sitemap_cache["xml"] = None
+    assert f"/empresa/{company['id']}</loc>" in site.get("/sitemap.xml").text
+
+    listing = site.get("/empresas", params={"q": "Nescau"})
+    assert f'href="/empresa/{company["id"]}"' in listing.text
+
+    assert site.get("/empresa/nova").status_code == 200
+    assert site.get(f"/empresa/{company['id']}/editar").status_code == 200
+    assert site.get("/empresa/nao-existe").status_code == 404

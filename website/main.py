@@ -144,6 +144,52 @@ def edit_product_form(request: Request, product_id: str):
     return page(request, "product_form.html", product=product)
 
 
+@app.get("/empresas", response_class=HTMLResponse)
+def companies_page(request: Request, q: str = "", pagina: int = 1):
+    q = q.strip()[:100]
+    pagina = max(1, pagina)
+    status, results = get_from_api(
+        ["companies"], {"q": q, "limit": RESULTS_PER_PAGE, "offset": (pagina - 1) * RESULTS_PER_PAGE}
+    )
+    if status != 200:
+        return error_page(request, status, results.get("detail", "Erro na busca de empresas."))
+
+    page_count = max(1, -(-results["total"] // RESULTS_PER_PAGE))
+    return page(request, "companies.html", q=q, results=results, pagina=pagina, page_count=page_count)
+
+
+@app.get("/empresa/nova", response_class=HTMLResponse)
+def new_company_form(request: Request):
+    return page(request, "company_form.html", company=None)
+
+
+@app.get("/empresa/{company_id}", response_class=HTMLResponse)
+def company_page(request: Request, company_id: str, pagina: int = 1):
+    status, company = get_from_api(["companies", company_id])
+    if status != 200:
+        return error_page(request, status, company.get("detail", "Empresa não encontrada."))
+
+    pagina = max(1, pagina)
+    _, products = get_from_api(
+        ["companies", company_id, "products"], {"limit": RESULTS_PER_PAGE, "offset": (pagina - 1) * RESULTS_PER_PAGE}
+    )
+    _, revisions = get_from_api(["companies", company_id, "revisions"], {"limit": 10})
+    page_count = max(1, -(-products.get("total", 0) // RESULTS_PER_PAGE))
+    return page(
+        request, "company.html",
+        company=company, products=products.get("items", []), revisions=revisions.get("items", []),
+        pagina=pagina, page_count=page_count,
+    )
+
+
+@app.get("/empresa/{company_id}/editar", response_class=HTMLResponse)
+def edit_company_form(request: Request, company_id: str):
+    status, company = get_from_api(["companies", company_id])
+    if status != 200:
+        return error_page(request, status, company.get("detail", "Empresa não encontrada."))
+    return page(request, "company_form.html", company=company)
+
+
 QUEUE_TABS = {"pendentes": "pending", "aprovadas": "approved", "descartadas": "rejected", "falharam": "failed"}
 
 
@@ -227,7 +273,7 @@ Toda leitura é pública, sem cadastro e sem chave. Para cadastrar ou editar, cr
 @app.get("/sitemap.xml")
 def sitemap(request: Request):
     """
-    Sitemap em XML (o formato que o Google aceita), com a página de cada produto.
+    Sitemap em XML (o formato que o Google aceita), com a página de cada produto e de cada empresa.
     Fica uma hora em memória para não percorrer a base toda a cada visita do robô.
     """
     cache_is_fresh = time.monotonic() - sitemap_cache["created_at"] < SITEMAP_CACHE_IN_SECONDS
@@ -248,6 +294,17 @@ def build_sitemap(address):
         for product in items:
             product_address = escape(f"{address}/produto/{product['id']}")
             entries.append(f"<url><loc>{product_address}</loc><lastmod>{product['updated_at'][:10]}</lastmod></url>")
+        if len(items) < SITEMAP_PAGE_SIZE:
+            break
+        offset += SITEMAP_PAGE_SIZE
+
+    offset = 0
+    while True:
+        status, companies = get_from_api(["companies"], {"limit": SITEMAP_PAGE_SIZE, "offset": offset})
+        items = companies.get("items", []) if status == 200 else []
+        for company in items:
+            company_address = escape(f"{address}/empresa/{company['id']}")
+            entries.append(f"<url><loc>{company_address}</loc></url>")
         if len(items) < SITEMAP_PAGE_SIZE:
             break
         offset += SITEMAP_PAGE_SIZE

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ company.name }} · Empresas · ProdBR{% endblock %}
+{% block description %}{{ company.name }}{% if company.brands %}: {{ company.brands | join(", ") }}{% endif %}. {{ company.product_count }} produtos no ProdBR.{% endblock %}
+{% block content %}
+  <nav class="breadcrumb" aria-label="Caminho">
+    <a href="/">Início</a>
+    <a href="/empresas">Empresas</a>
+  </nav>
+
+  <div class="article-header">
+    <h1 class="page-title">{{ company.name }}</h1>
+    <a class="button" href="/empresa/{{ company.id }}/editar">Editar</a>
+  </div>
+
+  <div class="article">
+    <aside class="infobox" aria-label="Dados da empresa">
+      <dl class="infobox__list">
+        {% if company.legal_name %}<dt>Razão social</dt><dd>{{ company.legal_name }}</dd>{% endif %}
+        {% if company.cnpj %}<dt>CNPJ</dt><dd><span class="code">{{ company.cnpj | cnpj }}</span></dd>{% endif %}
+        {% if company.brands %}<dt>Marcas</dt><dd>{{ company.brands | join(", ") }}</dd>{% endif %}
+        {% if company.city or company.uf %}<dt>Cidade</dt><dd>{{ [company.city, company.uf] | select | join(" / ") }}</dd>{% endif %}
+        {% if company.address %}<dt>Endereço</dt><dd>{{ company.address }}</dd>{% endif %}
+        {% if company.phone %}<dt>Telefone</dt><dd>{{ company.phone }}</dd>{% endif %}
+        {% if company.website %}<dt>Site</dt><dd><a href="{{ company.website }}" rel="noopener nofollow ugc">{{ company.website }}</a></dd>{% endif %}
+        {% if company.source %}<dt>Fonte</dt><dd>{{ company.source }}</dd>{% endif %}
+      </dl>
+    </aside>
+
+    <div class="article__body">
+      {% if company.description %}<p>{{ company.description }}</p>{% endif %}
+
+      <section class="section">
+        <h2 class="section__title">Produtos ({{ company.product_count }})</h2>
+        {% if products %}
+          {% include "_product_list.html" %}
+        {% else %}
+          <p class="empty">Nenhum produto ainda. Cadastre as marcas da empresa para os produtos aparecerem aqui.</p>
+        {% endif %}
+        {% if page_count > 1 %}
+          <nav class="pagination" aria-label="Páginas">
+            {% if pagina > 1 %}<a class="button" href="/empresa/{{ company.id }}?pagina={{ pagina - 1 }}">Anterior</a>{% endif %}
+            <span class="pagination__current">Página {{ pagina }} de {{ page_count }}</span>
+            {% if pagina < page_count %}<a class="button" href="/empresa/{{ company.id }}?pagina={{ pagina + 1 }}">Próxima</a>{% endif %}
+          </nav>
+        {% endif %}
+      </section>
+
+      <section class="section">
+        <h2 class="section__title">Histórico</h2>
+        {% if revisions %}
+          {% include "_revision_list.html" %}
+        {% else %}
+          <p class="empty">Sem alterações.</p>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+{% endblock %}
