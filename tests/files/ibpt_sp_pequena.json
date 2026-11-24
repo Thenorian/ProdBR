@@ -1,0 +1,81 @@
+{
+ "versao": "26.2.C",
+ "uf": "SP",
+ "total": 6,
+ "ncm": [
+  {
+   "codigo": "00000000",
+   "ex": null,
+   "tipo": 0,
+   "descricao": "PRODUTO NAO ESPECIFICADO NA LISTA DE NCM",
+   "nacionalfederal": "13.45",
+   "importadosfederal": "15.45",
+   "estadual": "18.00",
+   "municipal": "0.00",
+   "vigenciainicio": "2026-10-20",
+   "vigenciafim": "2026-11-30",
+   "versao": "26.2.C",
+   "fonte": "IBPT/empresometro.com.br",
+   "uf": "SP"
+  },
+  {
+   "codigo": "22030000",
+   "ex": null,
+   "tipo": 0,
+   "descricao": "Cervejas de malte",
+   "nacionalfederal": "13.91",
+   "importadosfederal": "17.77",
+   "estadual": "22.00",
+   "municipal": "0.00",
+   "vigenciainicio": "2026-10-20",
+   "vigenciafim": "2026-11-30",
+   "versao": "26.2.C",
+   "fonte": "IBPT/empresometro.com.br",
+   "uf": "SP"
+  },
+  {
+   "codigo": "22030000",
+   "ex": "01",
+   "tipo": 0,
+   "descricao": "Chope",
+   "nacionalfederal": "13.91",
+   "importadosfederal": "17.77",
+   "estadual": "22.00",
+   "municipal": "0.00",
+   "vigenciainicio": "2026-10-20",
+   "vigenciafim": "2026-11-30",
+   "versao": "26.2.C",
+   "fonte": "IBPT/empresometro.com.br",
+   "uf": "SP"
+  },
+  {
+   "codigo": "2203; DROP",
+   "ex": null,
+   "tipo": 0,
+   "nacionalfederal": "1",
+   "importadosfederal": "1",
+   "estadual": "1",
+   "municipal": "0",
+   "versao": "x",
+   "fonte": "x"
+  },
+  {
+   "codigo": "22021000",
+   "ex": null,
+   "tipo": 0,
+   "nacionalfederal": "abc",
+   "importadosfederal": "1",
+   "estadual": "1",
+   "municipal": "0"
+  },
+  {
+   "codigo": "22029900",
+   "ex": null,
+   "tipo": 0,
+   "nacionalfederal": "500",
+   "importadosfederal": "1",
+   "estadual": "1",
+   "municipal": "0"
+  }
+ ]
+}

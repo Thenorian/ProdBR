@@ -176,3 +176,28 @@ CREATE TABLE IF NOT EXISTS revisions (
 
 CREATE INDEX IF NOT EXISTS idx_revisions_entity ON revisions (entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_revisions_contributor ON revisions (contributor);
+
+
+-- Carga tributária aproximada da tabela do IBPT, por código e UF (Lei 12.741/2012, "De Olho no Imposto").
+-- É o percentual que o ERP imprime na nota e no cupom: "Valor aproximado dos tributos".
+-- Fica só a versão vigente de cada UF: a importação de uma versão nova troca todas as linhas daquela UF.
+-- item_type: 0 = NCM (produto), 1 = NBS (serviço), 2 = item da LC 116 (serviço).
+-- ex: exceção da TIPI ('' quando não tem, para poder entrar na chave).
+-- Taxas em percentual (18.12 = 18,12%).
+CREATE TABLE IF NOT EXISTS ibpt_rates (
+    uf CHAR(2) NOT NULL,
+    code VARCHAR(9) NOT NULL,
+    ex VARCHAR(3) NOT NULL DEFAULT '',
+    item_type INTEGER NOT NULL DEFAULT 0,
+    description TEXT NULL,
+    federal_national_rate REAL NOT NULL,
+    federal_imported_rate REAL NOT NULL,
+    state_rate REAL NOT NULL,
+    municipal_rate REAL NOT NULL,
+    valid_from DATE NULL,
+    valid_until DATE NULL,
+    version VARCHAR(20) NOT NULL,
+    source VARCHAR(100) NOT NULL,
+    imported_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (uf, item_type, code, ex)
+);

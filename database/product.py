@@ -4,6 +4,7 @@ from uuid import uuid4
 from database.category import CategoryDB, now_text
 from database.database import Database
 from database.fiscal import FiscalDB, summarize_fiscal_rules
+from database.ibpt import IbptDB
 from database.revision import revision_command
 
 PRODUCT_FIELDS = (
@@ -36,6 +37,7 @@ class ProductDB(Database):
         (ou da categoria acima). A lista "fiscal_data_from_category" diz o que veio de lá.
         As regras fiscais são as do NCM que estiver valendo, filtradas por uf e regime se informados.
         "fiscal_summary" junta as regras campo a campo (ICMS da UF + IPI/II oficiais): é o que o ERP usa.
+        "ibpt" é a carga aproximada da tabela do IBPT para o NCM na UF (só vem quando a uf é informada).
         """
         ok, product = self.select("products", where={"id": product_id}, fetch="one")
         if not ok or product is None:
@@ -69,6 +71,10 @@ class ProductDB(Database):
             if not ok:
                 return False, fiscal_rules
 
+        ok, ibpt = IbptDB().get_for_product(product["ncm_code"], uf)
+        if not ok:
+            return False, ibpt
+
         return True, {
             "id": product["id"],
             "name": product["name"],
@@ -86,6 +92,7 @@ class ProductDB(Database):
             "price": price,
             "fiscal_summary": summarize_fiscal_rules(fiscal_rules, uf, tax_regime),
             "fiscal_rules": fiscal_rules,
+            "ibpt": ibpt,
             "source": product["source"],
             "created_at": product["created_at"],
             "updated_at": product["updated_at"],

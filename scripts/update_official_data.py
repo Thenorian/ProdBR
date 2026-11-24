@@ -1,4 +1,4 @@
-"""Baixa agora a tabela NCM (Siscomex), o IPI (TIPI) e o II (TEC), sem esperar a rotina diária.
+"""Baixa agora a tabela NCM (Siscomex), o IPI (TIPI), o II (TEC) e a tabela do IBPT, sem esperar a rotina diária.
 
 Uso (no servidor: docker exec prodbr python -m scripts.update_official_data):
     python -m scripts.update_official_data

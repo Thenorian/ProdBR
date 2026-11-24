@@ -1,5 +1,5 @@
 """
-Atualização diária dos dados oficiais (NCM, IPI e II), dentro do próprio app, sem cron no servidor.
+Atualização diária dos dados oficiais (NCM, IPI, II e tabela do IBPT), dentro do próprio app, sem cron no servidor.
 
 Roda numa linha de execução em segundo plano: espera um minuto depois da subida
 (para não atrasar o início) e depois repete a cada 24 horas. Se o site do governo
@@ -13,6 +13,7 @@ import time
 
 from database.fiscal import FiscalDB
 from util.data_util import DataUtil
+from util.ibpt_data import update_all_states as update_ibpt_tables
 from util.official_data import download_federal_rates, download_ncm_table
 
 FIRST_RUN_DELAY_IN_SECONDS = 60
@@ -34,7 +35,7 @@ def update_every_day():
 
 
 def update_official_data_now():
-    """Baixa e grava a tabela NCM e depois o IPI e o II. Uma falha não impede a outra."""
+    """Baixa e grava a tabela NCM, depois o IPI e o II, depois o IBPT. Uma falha não impede a outra."""
     try:
         ok, summary = DataUtil().import_ncm_content(download_ncm_table(), "Siscomex (download diário)")
         if not ok:
@@ -54,3 +55,5 @@ def update_official_data_now():
             print(f"[OFICIAL] IPI/II: erro ao gravar: {totals}")
     except Exception as error:
         print(f"[OFICIAL] IPI/II: não foi possível baixar a TIPI ou a TEC: {error}")
+
+    update_ibpt_tables()
