@@ -20,6 +20,7 @@ from fastapi.templating import Jinja2Templates
 from database.contributor import ContributorDB
 from website.api_client import get_from_api
 from website.formatting import register_filters
+from website.price_chart import build_price_chart
 
 SITE_FOLDER = Path(__file__).resolve().parent
 PROJECT_ROOT = SITE_FOLDER.parent
@@ -129,9 +130,12 @@ def product_page(request: Request, product_id: str, uf: str = "", regime: str = 
         return error_page(request, status, product.get("detail", "Produto não encontrado."))
 
     _, revisions = get_from_api(["products", product_id, "revisions"], {"limit": 10})
+    _, prices = get_from_api(["products", product_id, "prices"], {"uf": uf})
+    base_sale_price = (product.get("price") or {}).get("base_sale_price")
     return page(
         request, "product.html",
         product=product, revisions=revisions.get("items", []), selected_uf=uf, selected_regime=regime,
+        price_chart=build_price_chart(prices.get("items", []), base_sale_price),
     )
 
 

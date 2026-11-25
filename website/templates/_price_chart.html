@@ -1,0 +1,141 @@
+{# Preço de venda: números de destaque, gráfico dos últimos 100 informes, tabela e formulário para informar. #}
+<section class="section" id="preco">
+  <h2 class="section__title">Preço de venda</h2>
+
+  {% if product.price %}
+    {% set price = product.price %}
+    <div class="price-stats">
+      <div class="price-stats__main">
+        <span class="price-stats__label">Preço base de venda</span>
+        {% if price.base_sale_price is not none %}
+          <span class="price-stats__value copyable">{{ price.base_sale_price | reais }}{{ copy_button(price.base_sale_price | para_copiar(2), "preço base") }}</span>
+        {% else %}
+          <span class="price-stats__value muted">Só promoções</span>
+        {% endif %}
+        <span class="muted small">mediana dos últimos {{ price.reports_kept }} informes, sem promoção</span>
+      </div>
+      <dl class="price-stats__list">
+        <div>
+          <dt>Último</dt>
+          <dd>{{ price.last | reais }}{% if price.last_is_promotion %} <span class="tag">promoção</span>{% endif %}
+            <span class="muted small">{{ price.last_reported_at | data_br }}</span></dd>
+        </div>
+        <div><dt>Mínimo</dt><dd>{{ price.minimum | reais }}</dd></div>
+        <div><dt>Máximo</dt><dd>{{ price.maximum | reais }}</dd></div>
+        <div>
+          <dt>Média 12 meses</dt>
+          <dd>{{ price.average | reais if price.average is not none else "—" }}
+            <span class="muted small">mediana {{ price.median | reais if price.median is not none else "—" }} · {{ price.reports }} informe{{ "s" if price.reports != 1 }} em {{ price.period_in_months }} meses</span></dd>
+        </div>
+      </dl>
+    </div>
+
+    {% if price_chart %}
+      <figure class="price-chart" data-price-chart>
+        <figcaption class="muted small">
+          Últimos {{ price_chart.points | length }} preços informados{% if selected_uf %} em {{ selected_uf }}{% endif %},
+          de {{ price_chart.first_date | data_br }} a {{ price_chart.last_date | data_br }}.
+          A linha tracejada é o preço base de venda.
+        </figcaption>
+        <svg class="price-chart__svg" viewBox="0 0 {{ price_chart.width }} {{ price_chart.height }}" role="img"
+             aria-label="Gráfico dos últimos preços informados">
+          {% for line in price_chart.grid %}
+            <line class="price-chart__grid" x1="{{ price_chart.plot_left }}" x2="{{ price_chart.plot_right }}" y1="{{ line.y }}" y2="{{ line.y }}"></line>
+            <text class="price-chart__axis" x="{{ price_chart.plot_left - 8 }}" y="{{ line.y + 4 }}" text-anchor="end">{{ line.price | reais }}</text>
+          {% endfor %}
+          <text class="price-chart__axis" x="{{ price_chart.plot_left }}" y="{{ price_chart.height - 8 }}">{{ price_chart.first_date | data_br }}</text>
+          <text class="price-chart__axis" x="{{ price_chart.plot_right }}" y="{{ price_chart.height - 8 }}" text-anchor="end">{{ price_chart.last_date | data_br }}</text>
+
+          <path class="price-chart__area" d="{{ price_chart.area_path }}"></path>
+          {% if price_chart.base_line_y is not none %}
+            <line class="price-chart__base" x1="{{ price_chart.plot_left }}" x2="{{ price_chart.plot_right }}"
+                  y1="{{ price_chart.base_line_y }}" y2="{{ price_chart.base_line_y }}"></line>
+          {% endif %}
+          <path class="price-chart__line" d="{{ price_chart.line_path }}"></path>
+
+          {% for point in price_chart.points %}
+            {% if point.is_promotion %}
+              <circle class="price-chart__promotion" cx="{{ point.x }}" cy="{{ point.y }}" r="4"></circle>
+            {% endif %}
+          {% endfor %}
+          {% set last_point = price_chart.points[-1] %}
+          <circle class="price-chart__last" cx="{{ last_point.x }}" cy="{{ last_point.y }}" r="5"></circle>
+
+          <line class="price-chart__crosshair" data-crosshair y1="{{ price_chart.plot_top }}" y2="{{ price_chart.plot_bottom }}" hidden></line>
+          <circle class="price-chart__hover" data-hover-point r="5" hidden></circle>
+          <rect class="price-chart__hit-area" x="{{ price_chart.plot_left }}" y="{{ price_chart.plot_top }}"
+                width="{{ price_chart.plot_right - price_chart.plot_left }}" height="{{ price_chart.plot_bottom - price_chart.plot_top }}"></rect>
+        </svg>
+        <div class="price-chart__tooltip" data-tooltip hidden></div>
+        <script type="application/json" data-chart-points>{{ price_chart.points | tojson }}</script>
+      </figure>
+
+      <details class="price-table">
+        <summary>Ver os preços em tabela</summary>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>Data</th><th>Preço</th><th>UF</th><th>Cidade</th><th>Embalagem</th><th>Tipo</th><th>Quem informou</th></tr></thead>
+            <tbody>
+              {% for report in price_chart.points | reverse %}
+                <tr>
+                  <td data-label="Data">{{ report.reported_at | data_br }}</td>
+                  <td data-label="Preço">{{ report.price | reais }}</td>
+                  <td data-label="UF">{{ report.uf or "—" }}</td>
+                  <td data-label="Cidade">{{ report.city or "—" }}</td>
+                  <td data-label="Embalagem"><span class="code">{{ report.barcode or "—" }}</span></td>
+                  <td data-label="Tipo">{{ "Promoção" if report.is_promotion else "Normal" }}</td>
+                  <td data-label="Quem informou">{{ report.contributor }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    {% elif selected_uf %}
+      <p class="empty">Nenhum preço informado em {{ selected_uf }}.</p>
+    {% endif %}
+  {% else %}
+    <p class="empty">Ninguém informou o preço deste produto ainda.</p>
+  {% endif %}
+
+  <button class="button" type="button" data-open-price-form>Informar preço</button>
+  <form class="form price-form" data-price-form data-product-id="{{ product.id }}" hidden>
+    <div class="form__row">
+      <label class="field">
+        <span class="field__label">Preço de venda (R$) *</span>
+        <input class="field__input" name="price" inputmode="decimal" required placeholder="Ex: 12,90">
+      </label>
+      <label class="field">
+        <span class="field__label">Embalagem</span>
+        <select class="field__input" name="barcode">
+          <option value="">O produto</option>
+          {% for item in product.barcodes %}
+            <option value="{{ item.barcode }}">{{ item.barcode }}{% if item.package_description %} · {{ item.package_description }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form__row">
+      <label class="field">
+        <span class="field__label">UF</span>
+        <select class="field__input" name="uf">
+          <option value="">Não informada</option>
+          {% for uf in ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"] %}
+            <option value="{{ uf }}" {{ "selected" if uf == selected_uf }}>{{ uf }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Cidade</span>
+        <input class="field__input" name="city" maxlength="120">
+      </label>
+    </div>
+    <label class="field field--checkbox">
+      <input type="checkbox" name="is_promotion"> É preço de promoção
+    </label>
+    <p class="form__message" data-price-message role="status"></p>
+    <div class="form__actions">
+      <button class="button button--primary" type="submit">Enviar preço</button>
+    </div>
+  </form>
+</section>

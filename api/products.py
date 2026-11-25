@@ -54,8 +54,12 @@ class ProductInput(BaseModel):
 
 
 class PriceInput(BaseModel):
-    price: float = Field(..., gt=0, lt=10_000_000, description="Preço em reais. Ex: 12.90")
+    """Preço de venda praticado. Mande sempre que quiser: só entra quando o preço mudou."""
+    price: float = Field(..., gt=0, lt=10_000_000, description="Preço de venda em reais. Ex: 12.90")
     uf: str | None = Field(None, description="UF onde o preço foi praticado.")
+    city: str | None = Field(None, max_length=120, description="Cidade onde o preço foi praticado.")
+    barcode: str | None = Field(None, description="Código de barras da embalagem vendida (unidade, caixa...). Vazio = o produto.")
+    is_promotion: bool = Field(False, description="true quando é preço de promoção. Fica fora do preço base de venda.")
 
 
 @router.get("/products", dependencies=[Depends(limit_reads)])
@@ -208,17 +212,60 @@ def apply_product_changes(product_id, payload, contributor):
     return {"changed_fields": changed_fields, "product": product}
 
 
-@router.post("/products/{product_id}/prices", status_code=201, dependencies=[Depends(limit_writes)])
-def report_price(product_id: str, payload: PriceInput, contributor=Depends(require_contributor)):
-    """Informa um preço praticado. A API devolve a média e a mediana dos últimos 12 meses no produto."""
+@router.get("/products/{product_id}/prices", dependencies=[Depends(limit_reads)])
+def list_product_prices(product_id: str, uf: str | None = None):
+    """
+    Os últimos 100 preços de venda informados, do mais antigo para o mais novo (é o que o gráfico do site desenha),
+    com o resumo: preço base de venda (mediana sem promoção), último, mínimo e máximo. Filtra por UF se informada.
+    """
     products = ProductDB()
     product_exists = result_or_error(products.exists("products", {"id": product_id}), 500)
     if not product_exists:
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
 
-    price_cents = round(payload.price * 100)
-    result_or_error(products.add_price_report(product_id, price_cents, clean_uf(payload.uf), contributor["username"]))
-    return {"product_id": product_id, "price": price_cents / 100}
+    items = result_or_error(products.list_price_reports(product_id, clean_uf(uf)), 500)
+    summary = result_or_error(products.get_full(product_id), 500)["price"]
+    return {"items": items, "summary": summary}
+
+
+@router.post("/products/{product_id}/prices", status_code=201, dependencies=[Depends(limit_writes)])
+def report_price(product_id: str, payload: PriceInput, contributor=Depends(require_contributor)):
+    """
+    Informa o preço de venda praticado. O ERP pode mandar a cada venda ou atualização: só entra quando mudou.
+    recorded: "created" (ponto novo no gráfico), "corrected" (corrigiu o seu informe da última hora)
+    ou "unchanged" (era o mesmo preço, nada foi gravado). Ficam guardados os 100 informes mais novos.
+    """
+    products = ProductDB()
+    product_exists = result_or_error(products.exists("products", {"id": product_id}), 500)
+    if not product_exists:
+        raise HTTPException(status_code=404, detail="Produto não encontrado.")
+
+    report = {
+        "price_cents": round(payload.price * 100),
+        "uf": clean_uf(payload.uf),
+        "city": " ".join((payload.city or "").split()) or None,
+        "barcode": None,
+        "is_promotion": int(payload.is_promotion),
+    }
+    if payload.uf and report["uf"] is None:
+        raise HTTPException(status_code=400, detail="UF inválida.")
+
+    if payload.barcode:
+        report["barcode"] = clean_barcode(payload.barcode)
+        product_barcodes = [item["barcode"] for item in result_or_error(products.list_barcodes(product_id), 500)]
+        if report["barcode"] not in product_barcodes:
+            raise HTTPException(status_code=400, detail="Esse código de barras não é deste produto.")
+
+    recorded = result_or_error(products.add_price_report(product_id, report, contributor["username"]))
+    return {
+        "product_id": product_id,
+        "price": report["price_cents"] / 100,
+        "uf": report["uf"],
+        "city": report["city"],
+        "barcode": report["barcode"],
+        "is_promotion": bool(report["is_promotion"]),
+        "recorded": recorded,
+    }
 
 
 def clean_product_input(payload, sent_fields, contributor_username, create_category=True):

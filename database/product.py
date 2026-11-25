@@ -1,4 +1,5 @@
 import statistics
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from database.category import CategoryDB, now_text
@@ -16,6 +17,10 @@ PRODUCT_FIELDS = (
 BARCODE_FIELDS = ("barcode", "package_description", "net_quantity", "net_unit", "units_per_pack")
 
 PRICE_PERIOD_IN_MONTHS = 12
+PRICE_REPORTS_KEPT_PER_PRODUCT = 100
+# Um novo preço do mesmo contribuidor dentro desse tempo corrige o anterior em vez de virar outro ponto.
+PRICE_CORRECTION_WINDOW_IN_MINUTES = 60
+PRICE_REPORT_COLUMNS = "price_cents, uf, city, barcode, is_promotion, contributor, reported_at"
 
 
 class ProductDB(Database):
@@ -277,14 +282,89 @@ class ProductDB(Database):
 
         return True, changed_fields
 
-    def add_price_report(self, product_id, price_cents, uf, contributor):
-        return self.insert("price_reports", {
-            "id": str(uuid4()),
-            "product_id": product_id,
-            "price_cents": price_cents,
-            "uf": uf,
-            "contributor": contributor,
-        })
+    def add_price_report(self, product_id, report, contributor):
+        """
+        Grava um preço de venda, só se ele mudou. Devolve (True, "created"), (True, "corrected")
+        ou (True, "unchanged").
+
+            report = {"price_cents": 1290, "uf": "SP", "city": "Campinas", "barcode": "7891000100103", "is_promotion": 0}
+
+        Compara com o último preço do mesmo contribuidor para a mesma UF, cidade, embalagem e tipo:
+            igual                         ->  nada é gravado (o ERP pode mandar sempre, só a mudança entra)
+            diferente, há menos de 1 hora ->  corrige aquele informe (não vira outro ponto no gráfico)
+            diferente, há mais tempo      ->  novo informe
+        Depois guarda só os 100 informes mais novos do produto.
+        """
+        same_place_and_package = """
+            SELECT id, price_cents, reported_at >= datetime('now', ?) AS is_recent
+            FROM price_reports
+            WHERE product_id = ? AND contributor = ? AND is_promotion = ?
+              AND uf IS ? AND city IS ? AND barcode IS ?
+            ORDER BY reported_at DESC, rowid DESC
+            LIMIT 1
+        """
+        ok, previous = self.run_sql(same_place_and_package, (
+            f"-{PRICE_CORRECTION_WINDOW_IN_MINUTES} minutes", product_id, contributor, report["is_promotion"],
+            report["uf"], report["city"], report["barcode"],
+        ), fetch="one")
+        if not ok:
+            return False, previous
+
+        if previous and previous["price_cents"] == report["price_cents"]:
+            return True, "unchanged"
+
+        if previous and previous["is_recent"]:
+            commands = [(
+                "UPDATE price_reports SET price_cents = ?, reported_at = ? WHERE id = ?",
+                (report["price_cents"], now_text(), previous["id"]),
+            )]
+            result = "corrected"
+        else:
+            commands = [(
+                "INSERT INTO price_reports (id, product_id, price_cents, uf, city, barcode, is_promotion, contributor) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (str(uuid4()), product_id, report["price_cents"], report["uf"], report["city"],
+                 report["barcode"], report["is_promotion"], contributor),
+            )]
+            result = "created"
+
+        commands.append((
+            "DELETE FROM price_reports WHERE product_id = ? AND id NOT IN ("
+            "SELECT id FROM price_reports WHERE product_id = ? ORDER BY reported_at DESC, rowid DESC LIMIT ?)",
+            (product_id, product_id, PRICE_REPORTS_KEPT_PER_PRODUCT),
+        ))
+
+        ok, error = self.run_in_transaction(commands)
+        if not ok:
+            return False, error
+        return True, result
+
+    def list_price_reports(self, product_id, uf=None):
+        """Os informes guardados (até 100), do mais antigo para o mais novo, como o gráfico desenha."""
+        where_uf = "AND uf = ?" if uf else ""
+        values = (product_id, uf) if uf else (product_id,)
+        sql = f"""
+            SELECT {PRICE_REPORT_COLUMNS}
+            FROM price_reports
+            WHERE product_id = ? {where_uf}
+            ORDER BY reported_at, rowid
+        """
+        ok, rows = self.run_sql(sql, values)
+        if not ok:
+            return False, rows
+
+        return True, [
+            {
+                "price": row["price_cents"] / 100,
+                "uf": row["uf"],
+                "city": row["city"],
+                "barcode": row["barcode"],
+                "is_promotion": bool(row["is_promotion"]),
+                "contributor": row["contributor"],
+                "reported_at": row["reported_at"],
+            }
+            for row in rows
+        ]
 
     def _barcode_change_commands(self, product_id, new_barcodes, contributor, reason):
         """Se a lista mudou (código ou embalagem), troca todos os códigos do produto pela lista nova."""
@@ -361,22 +441,38 @@ class ProductDB(Database):
         }
 
     def _price_summary(self, product_id):
-        """Média e mediana dos preços informados nos últimos 12 meses. A mediana não se deixa levar por um preço absurdo."""
-        sql = f"""
-            SELECT price_cents FROM price_reports
-            WHERE product_id = ? AND reported_at >= datetime('now', '-{PRICE_PERIOD_IN_MONTHS} months')
         """
-        ok, rows = self.run_sql(sql, (product_id,))
+        Resumo dos preços informados. (True, None) se ninguém informou.
+
+            base_sale_price  preço base de venda: mediana dos informes guardados (até 100), sem promoção.
+                             A mediana não se deixa levar por um preço absurdo.
+            last             o informe mais novo (pode ser promoção) e quando foi.
+            minimum/maximum  menor e maior preço entre os informes guardados.
+            average/median   dos últimos 12 meses, com ou sem promoção (campos da primeira versão da API).
+        """
+        ok, reports = self.list_price_reports(product_id)
         if not ok:
-            return False, rows
-        if not rows:
+            return False, reports
+        if not reports:
             return True, None
 
-        prices = [row["price_cents"] for row in rows]
+        all_prices = [report["price"] for report in reports]
+        regular_prices = [report["price"] for report in reports if not report["is_promotion"]]
+        twelve_months_ago = (datetime.now(timezone.utc) - timedelta(days=365)).strftime("%Y-%m-%d %H:%M:%S")
+        recent_prices = [report["price"] for report in reports if report["reported_at"] >= twelve_months_ago]
+        last_report = reports[-1]
+
         return True, {
-            "average": round(statistics.mean(prices) / 100, 2),
-            "median": round(statistics.median(prices) / 100, 2),
-            "reports": len(prices),
+            "base_sale_price": round(statistics.median(regular_prices), 2) if regular_prices else None,
+            "last": last_report["price"],
+            "last_reported_at": last_report["reported_at"],
+            "last_is_promotion": last_report["is_promotion"],
+            "minimum": min(all_prices),
+            "maximum": max(all_prices),
+            "average": round(statistics.mean(recent_prices), 2) if recent_prices else None,
+            "median": round(statistics.median(recent_prices), 2) if recent_prices else None,
+            "reports": len(recent_prices),
+            "reports_kept": len(reports),
             "period_in_months": PRICE_PERIOD_IN_MONTHS,
         }
 

@@ -149,7 +149,11 @@ CREATE TABLE IF NOT EXISTS product_barcodes (
 CREATE INDEX IF NOT EXISTS idx_product_barcodes_product_id ON product_barcodes (product_id);
 
 
--- Preços informados por quem usa o produto. A API devolve a média dos últimos 12 meses.
+-- Preço de venda informado por quem usa o produto (ERP ou pessoa). Só os 100 informes
+-- mais recentes de cada produto ficam guardados: são eles que desenham o gráfico do site
+-- e dão o preço base de venda (mediana). O que passa disso é apagado na hora.
+-- barcode: a embalagem a que o preço se refere (unidade, caixa...). Vazio = o produto.
+-- is_promotion: 1 quando é preço de promoção (fica fora do preço base).
 -- Valor em centavos (inteiro) para não ter erro de arredondamento.
 CREATE TABLE IF NOT EXISTS price_reports (
     id CHAR(36) NOT NULL PRIMARY KEY,
@@ -157,7 +161,10 @@ CREATE TABLE IF NOT EXISTS price_reports (
     price_cents INTEGER NOT NULL,
     uf VARCHAR(2) NULL,
     contributor VARCHAR(40) NOT NULL,
-    reported_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    reported_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    barcode VARCHAR(14) NULL,
+    city VARCHAR(120) NULL,
+    is_promotion INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_price_reports_product_id ON price_reports (product_id, reported_at);

@@ -1,3 +1,5 @@
+from tests.conftest import create_contributor
+
 VALID_BARCODE = "7891000100103"
 OTHER_VALID_BARCODE = "7891000053508"
 
@@ -105,11 +107,16 @@ def test_edicao_grava_historico_so_do_que_mudou(client, auth):
 
 def test_preco_medio_e_mediana(client, auth):
     product = new_product(client, auth)
-    for price in (10.0, 12.0, 100.0):
-        assert client.post(f"/products/{product['id']}/prices", json={"price": price, "uf": "SP"}, headers=auth).status_code == 201
+    for number, price in enumerate((10.0, 12.0, 100.0)):
+        seller = {"X-API-Key": create_contributor(client, f"loja{number}")}
+        assert client.post(f"/products/{product['id']}/prices", json={"price": price, "uf": "SP"}, headers=seller).status_code == 201
 
     price = client.get(f"/products/{product['id']}").json()["price"]
-    assert price == {"average": 40.67, "median": 12.0, "reports": 3, "period_in_months": 12}
+    assert {key: price[key] for key in ("average", "median", "reports", "period_in_months")} == {
+        "average": 40.67, "median": 12.0, "reports": 3, "period_in_months": 12,
+    }
+    assert price["base_sale_price"] == 12.0
+    assert price["last"] == 100.0
 
 
 def test_regras_fiscais_filtradas_por_uf_e_regime(client, auth, ncm_table):

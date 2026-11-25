@@ -160,3 +160,17 @@ def test_titulo_da_pagina_mostra_so_o_numero_do_codigo_de_barras(site, client, a
     product = new_product(client, auth)
     page = site.get(f"/produto/{product['id']}")
     assert "<title>Café Torrado 500g · 7891000100103 · ProdBR</title>" in page.text
+
+
+def test_pagina_do_produto_desenha_o_grafico_de_preco(site, client, auth):
+    product = new_product(client, auth)
+    client.post(f"/products/{product['id']}/prices", json={"price": 10, "uf": "SP", "city": "<b>Campinas</b>"}, headers=auth)
+
+    page = site.get(f"/produto/{product['id']}")
+    assert "Preço base de venda" in page.text
+    assert 'class="price-chart__line"' in page.text
+    assert "&lt;b&gt;Campinas&lt;/b&gt;" in page.text
+    assert "<b>Campinas</b>" not in page.text
+
+    no_prices = client.post("/products", json={"name": "Sem preço", "reason": "teste"}, headers=auth).json()
+    assert "Ninguém informou o preço" in site.get(f"/produto/{no_prices['id']}").text

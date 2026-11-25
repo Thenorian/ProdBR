@@ -894,6 +894,172 @@ h2 {
   font-size: 14px;
 }
 
+/* Preço de venda: destaque, gráfico e formulário */
+
+.price-stats {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 2fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.price-stats__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.price-stats__label {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.price-stats__value {
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.price-stats__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.price-stats__list > div {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.price-stats__list dt {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.price-stats__list dd {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-1) 0 0;
+  font-weight: 600;
+}
+
+.price-chart {
+  --color-chart-line: #4338ca;
+  position: relative;
+  margin: 0 0 var(--space-3);
+}
+
+.price-chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+}
+
+.price-chart__grid {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.price-chart__axis {
+  fill: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.price-chart__area {
+  fill: var(--color-chart-line);
+  opacity: 0.1;
+}
+
+.price-chart__line {
+  fill: none;
+  stroke: var(--color-chart-line);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.price-chart__base {
+  stroke: var(--color-text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+}
+
+.price-chart__last,
+.price-chart__hover {
+  fill: var(--color-chart-line);
+  stroke: var(--color-surface);
+  stroke-width: 2;
+}
+
+.price-chart__promotion {
+  fill: var(--color-surface);
+  stroke: var(--color-chart-line);
+  stroke-width: 2;
+}
+
+.price-chart__crosshair {
+  stroke: var(--color-text-muted);
+  stroke-width: 1;
+}
+
+.price-chart__hit-area {
+  fill: transparent;
+  cursor: crosshair;
+}
+
+.price-chart__tooltip {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.price-chart [hidden] {
+  display: none;
+}
+
+.price-table {
+  margin-bottom: var(--space-4);
+}
+
+.price-form {
+  margin-top: var(--space-3);
+}
+
+.field--checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (prefers-color-scheme: dark) {
+  .price-chart {
+    --color-chart-line: #6d75e8;
+  }
+}
+
+@media (max-width: 720px) {
+  .price-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Rodapé e anúncio */
 
 .site-footer {

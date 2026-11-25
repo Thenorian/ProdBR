@@ -94,12 +94,10 @@
           <dd><span class="copyable">{{ product.origin }} · {{ product.origin | origem }}{{ copy_button(product.origin, "origem") }}</span></dd>
         {% endif %}
 
-        <dt>Preço médio</dt>
+        <dt>Preço base de venda</dt>
         <dd>
-          {% if product.price %}
-            <span class="copyable">{{ product.price.median | reais }}{{ copy_button(product.price.median | para_copiar(2), "preço") }}</span>
-            <span class="muted small">mediana · média {{ product.price.average | reais }}</span>
-            <span class="muted small">{{ product.price.reports }} informe{{ "s" if product.price.reports != 1 }} em {{ product.price.period_in_months }} meses</span>
+          {% if product.price and product.price.base_sale_price is not none %}
+            <a href="#preco">{{ product.price.base_sale_price | reais }}</a>
           {% else %}<span class="muted">Sem informe</span>{% endif %}
         </dd>
 
@@ -241,6 +239,8 @@
         {% endif %}
       </section>
 
+      {% include "_price_chart.html" %}
+
       <section class="section">
         <h2 class="section__title">Histórico</h2>
         {% if revisions %}
@@ -254,3 +254,4 @@
     </div>
   </div>
 {% endblock %}
+{% block scripts %}<script src="{{ static_url('price_chart.js') }}"></script>{% endblock %}
