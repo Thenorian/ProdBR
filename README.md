@@ -129,18 +129,26 @@ A reputação aparece só no site (página Sobre), nunca na API.
 ### Empresas
 
 Perfil de empresa no estilo Wikipedia: qualquer pessoa cadastra e completa
-(`POST`/`PUT /api/v1/companies`, ou as páginas `/empresas` e `/empresa/{id}` do
-site). Só o nome é obrigatório; CNPJ, razão social, site, telefone, endereço e
-marcas são opcionais. O CNPJ, quando vem, é conferido (numérico ou
-alfanumérico, o formato novo da Receita) e não se repete.
+(`POST`/`PUT /api/v1/companies`, ou as páginas `/empresas` e `/empresa/{CNPJ}`
+do site). Só o nome é obrigatório. A empresa tem três listas, e cada lista
+enviada substitui a anterior inteira:
 
-As rotas da empresa usam o CNPJ: `GET /api/v1/companies/60409075000152`
-(sem a barra; pontos e hífen são aceitos). Empresa sem CNPJ usa o id. O
-`company_id` do produto também aceita o CNPJ.
+- `establishments`: cada CNPJ (matriz e filiais) com razão social, inscrição
+  estadual e endereço separado como na NF-e (CEP, logradouro, número,
+  complemento, bairro, cidade, código IBGE do município e UF). O CNPJ é
+  conferido (numérico ou alfanumérico) e não se repete. No site, o CEP
+  preenche o endereço pelo ViaCEP.
+- `phones`: telefones com a descrição de cada um (SAC, Suporte...).
+- `brands`: marcas da empresa.
 
-Os produtos aparecem no perfil (`GET /api/v1/companies/{id}/products`) quando:
+As rotas da empresa usam qualquer CNPJ dela: `GET /api/v1/companies/60409075000152`
+(sem a barra; pontos e hífen são aceitos). Empresa sem CNPJ usa o id. Os campos
+da primeira versão (`cnpj`, `legal_name`, `address`, `city`, `uf`, `phone`)
+continuam na resposta, vindos da matriz e do primeiro telefone.
 
-1. o produto aponta para a empresa (`company_id`), ou, se não aponta,
+Os produtos aparecem no perfil (`GET /api/v1/companies/{CNPJ}/products`) quando:
+
+1. o produto aponta para a empresa (`company_id`, que aceita o CNPJ), ou, se não aponta,
 2. a marca do produto é uma das marcas da empresa, ou
 3. o fabricante do produto tem o nome da empresa.
 

@@ -67,27 +67,61 @@ CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories (parent_id);
 
 -- Empresa, como um ponto no Google Maps ou um verbete da Wikipedia: qualquer pessoa
 -- cadastra e completa o perfil, e tudo fica no histórico (entity_type 'company').
--- Só o nome é obrigatório. CNPJ é opcional, mas não se repete (índice único só para quem tem).
+-- Aqui fica só o perfil (nome conhecido, descrição, site). CNPJ, razão social e endereço
+-- ficam em company_establishments, porque uma empresa pode ter vários CNPJs (matriz e filiais),
+-- e telefones em company_phones.
 -- O produto aponta para a empresa em products.company_id. Sem isso, a empresa ainda
 -- é achada pela marca (company_brands) ou pelo fabricante com o mesmo nome.
 CREATE TABLE IF NOT EXISTS companies (
     id CHAR(36) NOT NULL PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
-    legal_name VARCHAR(200) NULL,
-    cnpj VARCHAR(14) NULL,
     description VARCHAR(2000) NULL,
     website VARCHAR(255) NULL,
-    phone VARCHAR(30) NULL,
-    address VARCHAR(255) NULL,
-    city VARCHAR(120) NULL,
-    uf CHAR(2) NULL,
     source VARCHAR(255) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_cnpj ON companies (cnpj) WHERE cnpj IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_companies_name ON companies (name COLLATE NOCASE);
+
+
+-- Cada CNPJ da empresa (matriz e filiais), com a razão social e o endereço dele.
+-- O endereço é separado como na NF-e: CEP, logradouro, número, complemento, bairro,
+-- cidade com o código IBGE do município, e UF.
+-- CNPJ é opcional (dá para cadastrar o endereço antes de saber), mas não se repete.
+-- is_headquarters = 1 na matriz: é dela que saem os campos antigos da API (cnpj, legal_name...).
+CREATE TABLE IF NOT EXISTS company_establishments (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    company_id CHAR(36) NOT NULL REFERENCES companies (id),
+    cnpj VARCHAR(14) NULL,
+    legal_name VARCHAR(200) NULL,
+    state_registration VARCHAR(20) NULL,
+    is_headquarters INTEGER NOT NULL DEFAULT 0,
+    zip_code CHAR(8) NULL,
+    street VARCHAR(200) NULL,
+    number VARCHAR(20) NULL,
+    complement VARCHAR(120) NULL,
+    district VARCHAR(120) NULL,
+    city VARCHAR(120) NULL,
+    city_ibge_code CHAR(7) NULL,
+    uf CHAR(2) NULL,
+    position INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_company_establishments_cnpj ON company_establishments (cnpj) WHERE cnpj IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_company_establishments_company_id ON company_establishments (company_id);
+
+
+-- Telefones da empresa, cada um com a descrição do que é. Ex: SAC, Suporte, Comercial.
+CREATE TABLE IF NOT EXISTS company_phones (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    company_id CHAR(36) NOT NULL REFERENCES companies (id),
+    phone VARCHAR(30) NOT NULL,
+    description VARCHAR(60) NULL,
+    position INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_company_phones_company_id ON company_phones (company_id);
 
 
 -- Marcas de cada empresa. Ex: Nestlé -> Nescau, Ninho, Moça.

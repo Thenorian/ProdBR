@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_copy_button.html" import copy_button %}
 {% block title %}{{ company.name }} · Empresas · ProdBR{% endblock %}
 {% block description %}{{ company.name }}{% if company.brands %}: {{ company.brands | join(", ") }}{% endif %}. {{ company.product_count }} produtos no ProdBR.{% endblock %}
 {% block content %}
@@ -15,12 +16,10 @@
   <div class="article">
     <aside class="infobox" aria-label="Dados da empresa">
       <dl class="infobox__list">
-        {% if company.legal_name %}<dt>Razão social</dt><dd>{{ company.legal_name }}</dd>{% endif %}
-        {% if company.cnpj %}<dt>CNPJ</dt><dd><span class="code">{{ company.cnpj | cnpj }}</span></dd>{% endif %}
+        {% if company.legal_name %}<dt>Razão social (matriz)</dt><dd>{{ company.legal_name }}</dd>{% endif %}
+        {% if company.cnpj %}<dt>CNPJ (matriz)</dt><dd><span class="code">{{ company.cnpj | cnpj }}</span></dd>{% endif %}
         {% if company.brands %}<dt>Marcas</dt><dd>{{ company.brands | join(", ") }}</dd>{% endif %}
-        {% if company.city or company.uf %}<dt>Cidade</dt><dd>{{ [company.city, company.uf] | select | join(" / ") }}</dd>{% endif %}
-        {% if company.address %}<dt>Endereço</dt><dd>{{ company.address }}</dd>{% endif %}
-        {% if company.phone %}<dt>Telefone</dt><dd>{{ company.phone }}</dd>{% endif %}
+        {% if company.city or company.uf %}<dt>Cidade (matriz)</dt><dd>{{ [company.city, company.uf] | select | join(" / ") }}</dd>{% endif %}
         {% if company.website %}<dt>Site</dt><dd><a href="{{ company.website }}" rel="noopener nofollow ugc">{{ company.website }}</a></dd>{% endif %}
         {% if company.source %}<dt>Fonte</dt><dd>{{ company.source }}</dd>{% endif %}
         <dt>Cadastrada em</dt><dd>{{ company.created_at | data_br }}</dd>
@@ -31,6 +30,55 @@
 
     <div class="article__body">
       {% if company.description %}<p>{{ company.description }}</p>{% endif %}
+
+      <section class="section">
+        <h2 class="section__title">Estabelecimentos ({{ company.establishments | length }})</h2>
+        {% if company.establishments %}
+          <div class="table-scroll">
+            <table class="data-table data-table--striped">
+              <thead>
+                <tr><th>Tipo</th><th>CNPJ</th><th>Razão social</th><th>Inscrição estadual</th><th>Endereço</th><th>CEP</th><th>Cidade / UF</th><th>IBGE</th></tr>
+              </thead>
+              <tbody>
+                {% for establishment in company.establishments %}
+                  <tr>
+                    <td data-label="Tipo">{{ "Matriz" if establishment.is_headquarters else "Filial" }}</td>
+                    <td data-label="CNPJ">{% if establishment.cnpj %}<span class="code">{{ establishment.cnpj | cnpj }}</span>{% else %}—{% endif %}</td>
+                    <td data-label="Razão social">{{ establishment.legal_name or "—" }}</td>
+                    <td data-label="Inscrição estadual">{{ establishment.state_registration or "—" }}</td>
+                    <td data-label="Endereço">
+                      {{ [[establishment.street, establishment.number] | select | join(", "), establishment.complement] | select | join(" - ") or "—" }}
+                      {% if establishment.district %}<span class="muted small">{{ establishment.district }}</span>{% endif %}
+                    </td>
+                    <td data-label="CEP" class="nowrap">{{ establishment.zip_code | cep if establishment.zip_code else "—" }}</td>
+                    <td data-label="Cidade / UF">{{ [establishment.city, establishment.uf] | select | join(" / ") or "—" }}</td>
+                    <td data-label="IBGE">{{ establishment.city_ibge_code or "—" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty">Nenhum CNPJ cadastrado. <a href="{{ company | endereco_empresa }}/editar">Adicionar</a></p>
+        {% endif %}
+      </section>
+
+      {% if company.phones %}
+        <section class="section">
+          <h2 class="section__title">Telefones</h2>
+          <table class="data-table data-table--striped">
+            <thead><tr><th>Descrição</th><th>Telefone</th></tr></thead>
+            <tbody>
+              {% for phone in company.phones %}
+                <tr>
+                  <td data-label="Descrição">{{ phone.description or "—" }}</td>
+                  <td data-label="Telefone"><span class="copyable">{{ phone.phone }}{{ copy_button(phone.phone, "telefone") }}</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+      {% endif %}
 
       <section class="section">
         <h2 class="section__title">Produtos ({{ company.product_count }})</h2>

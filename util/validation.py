@@ -149,3 +149,26 @@ def clean_phone(phone):
     """ clean_phone("(11) 3456-7890") -> "(11) 3456-7890". Só dígitos, espaço, parênteses, + e hífen. """
     phone = " ".join(str(phone or "").split())
     return phone if PHONE_FORMAT.match(phone) else None
+
+
+ZIP_CODE_FORMAT = re.compile(r"^[0-9]{8}$")
+IBGE_CITY_CODE_FORMAT = re.compile(r"^[0-9]{7}$")
+STATE_REGISTRATION_FORMAT = re.compile(r"^([0-9A-Z]{2,14}|ISENTO)$")
+
+
+def clean_zip_code(zip_code):
+    """ CEP só com os 8 dígitos.  clean_zip_code("01310-100") -> "01310100" """
+    digits = "".join(character for character in str(zip_code or "") if character.isdigit())
+    return digits if ZIP_CODE_FORMAT.match(digits) else None
+
+
+def clean_ibge_city_code(code):
+    """ Código IBGE do município, 7 dígitos.  clean_ibge_city_code("3550308") -> "3550308" (São Paulo) """
+    code = str(code or "").strip()
+    return code if IBGE_CITY_CODE_FORMAT.match(code) else None
+
+
+def clean_state_registration(state_registration):
+    """ Inscrição estadual sem pontuação, ou ISENTO.  clean_state_registration("110.042.490.114") -> "110042490114" """
+    text = "".join(character for character in str(state_registration or "").upper() if character.isalnum())
+    return text if STATE_REGISTRATION_FORMAT.match(text) else None

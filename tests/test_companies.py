@@ -74,11 +74,12 @@ def test_edicao_grava_historico_e_troca_as_marcas(client, auth):
     response = client.put(
         f"/companies/{company['id']}", json={"city": "São Paulo", "brands": ["Ninho", "Moça"], "reason": "completa"}, headers=auth
     )
-    assert sorted(response.json()["changed_fields"]) == ["brands", "city"]
+    assert sorted(response.json()["changed_fields"]) == ["brands", "establishments"]
     assert response.json()["company"]["brands"] == ["Moça", "Ninho"]
+    assert response.json()["company"]["city"] == "São Paulo"
 
     history = client.get(f"/companies/{company['id']}/revisions").json()["items"]
-    assert {revision["field"] for revision in history} >= {"name", "city", "brands"}
+    assert {revision["field"] for revision in history} >= {"name", "establishments", "brands"}
 
 
 def test_busca_por_nome_cnpj_e_marca(client, auth):
@@ -135,3 +136,97 @@ def test_produto_aponta_para_a_empresa_pelo_cnpj(client, auth):
     assert client.get(f"/products/{product['id']}").json()["company"] == {
         "id": company["id"], "name": "Nestlé", "cnpj": "60409075000152", "linked_by": "company_id",
     }
+
+
+HEADQUARTERS = {
+    "cnpj": "60.409.075/0001-52", "legal_name": "Nestlé Brasil Ltda", "state_registration": "110.042.490.114",
+    "is_headquarters": True, "zip_code": "04730-000", "street": "Avenida Doutor Chucri Zaidan", "number": "246",
+    "complement": "Torre B", "district": "Vila Cordeiro", "city": "São Paulo", "city_ibge_code": "3550308", "uf": "SP",
+}
+BRANCH = {"cnpj": "11.222.333/0001-81", "legal_name": "Nestlé Filial Ltda", "zip_code": "13010-000", "city": "Campinas", "uf": "SP"}
+
+
+def test_empresa_com_varios_cnpjs_e_endereco_separado(client, auth):
+    company = new_company(client, auth, cnpj=None, uf=None, establishments=[BRANCH, HEADQUARTERS])
+
+    establishments = company["establishments"]
+    assert [item["cnpj"] for item in establishments] == ["60409075000152", "11222333000181"]  # matriz primeiro
+    assert establishments[0] == {
+        "cnpj": "60409075000152", "legal_name": "Nestlé Brasil Ltda", "state_registration": "110042490114",
+        "is_headquarters": True, "zip_code": "04730000", "street": "Avenida Doutor Chucri Zaidan", "number": "246",
+        "complement": "Torre B", "district": "Vila Cordeiro", "city": "São Paulo", "city_ibge_code": "3550308", "uf": "SP",
+    }
+    # Campos da primeira versão da API, vindos da matriz:
+    assert company["cnpj"] == "60409075000152"
+    assert company["legal_name"] == "Nestlé Brasil Ltda"
+    assert company["address"] == "Avenida Doutor Chucri Zaidan, 246 - Torre B, Vila Cordeiro"
+
+    for cnpj in ("60409075000152", "11222333000181"):
+        assert client.get(f"/companies/{cnpj}").json()["id"] == company["id"]
+    assert client.get("/companies", params={"q": "Filial Ltda"}).json()["total"] == 1
+    assert client.get("/companies", params={"uf": "SP"}).json()["total"] == 1
+
+
+def test_sem_matriz_marcada_a_primeira_vira_matriz_e_duas_matrizes_e_erro(client, auth):
+    company = new_company(client, auth, cnpj=None, establishments=[BRANCH])
+    assert company["establishments"][0]["is_headquarters"] is True
+
+    two_headquarters = [{**HEADQUARTERS}, {**BRANCH, "is_headquarters": True}]
+    response = client.put(f"/companies/{company['id']}", json={"establishments": two_headquarters, "reason": "teste"}, headers=auth)
+    assert response.status_code == 400
+
+
+def test_cnpj_de_outra_empresa_e_recusado(client, auth):
+    new_company(client, auth, cnpj=None, establishments=[HEADQUARTERS])
+    response = client.post("/companies", json={**NESTLE, "name": "Outra", "cnpj": None, "establishments": [HEADQUARTERS]}, headers=auth)
+    assert response.status_code == 400
+    assert "Nestlé" in response.json()["detail"]
+
+
+def test_endereco_invalido_diz_a_linha(client, auth):
+    bad = {**BRANCH, "zip_code": "123", "city_ibge_code": "35"}
+    response = client.post("/companies", json={**NESTLE, "cnpj": None, "establishments": [HEADQUARTERS, bad]}, headers=auth)
+    assert response.status_code == 400
+    assert "Estabelecimento 2: CEP inválido" in response.json()["detail"]
+
+
+def test_telefones_com_descricao(client, auth):
+    phones = [{"phone": "0800 770 2461", "description": "SAC"}, {"phone": "(11) 2199-2999", "description": "Comercial"}]
+    company = new_company(client, auth, phones=phones)
+    assert company["phones"] == phones
+    assert company["phone"] == "0800 770 2461"
+
+    response = client.put(f"/companies/{company['id']}", json={"phones": phones[1:], "reason": "tira o SAC"}, headers=auth)
+    assert response.json()["changed_fields"] == ["phones"]
+    assert response.json()["company"]["phones"] == phones[1:]
+
+
+def test_campos_da_primeira_versao_mexem_na_matriz(client, auth):
+    company = new_company(client, auth, cnpj=None, establishments=[HEADQUARTERS, BRANCH])
+    response = client.put(f"/companies/{company['id']}", json={"legal_name": "Nestlé Nova Ltda", "reason": "razão"}, headers=auth)
+    establishments = response.json()["company"]["establishments"]
+    assert establishments[0]["legal_name"] == "Nestlé Nova Ltda"
+    assert establishments[0]["zip_code"] == "04730000"
+    assert establishments[1]["legal_name"] == "Nestlé Filial Ltda"
+
+
+def test_dados_antigos_da_empresa_passam_para_as_listas():
+    """Empresa gravada na primeira versão (CNPJ e telefone na própria tabela) vira estabelecimento e telefone."""
+    from database.company import CompanyDB, move_old_company_data_to_lists
+
+    companies = CompanyDB()
+    for column in ("legal_name", "cnpj", "phone", "address", "city", "uf"):
+        companies.add_column("companies", column, "VARCHAR(200) NULL")
+    companies.insert("companies", {
+        "id": "antiga", "name": "Special Dog Company", "legal_name": "MANFRIM INDL E COML LTDA",
+        "cnpj": "56813280000292", "phone": "(17) 3201-0000", "city": "Santa Fé do Sul", "uf": "SP",
+    })
+
+    assert move_old_company_data_to_lists() == (True, 1)
+    assert move_old_company_data_to_lists() == (True, 0)
+
+    ok, company = companies.get_full("antiga")
+    assert company["cnpj"] == "56813280000292"
+    assert company["legal_name"] == "MANFRIM INDL E COML LTDA"
+    assert company["establishments"][0]["is_headquarters"] is True
+    assert company["phones"] == [{"phone": "(17) 3201-0000", "description": None}]

@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from database.company import move_old_company_data_to_lists
 from database.database import CommunityDatabase, Database
 from database.legacy_import import LegacyImport
 
@@ -24,6 +25,12 @@ def prepare_databases():
             raise SystemExit(f"[DB] Migração de {schema.name} falhou: {changes}")
         for change in changes:
             print(f"[DB] {schema.name}: {change}")
+
+    ok, moved = move_old_company_data_to_lists()
+    if not ok:
+        raise SystemExit(f"[DB] Erro ao passar CNPJ, endereço e telefone das empresas para as listas: {moved}")
+    if moved:
+        print(f"[DB] {moved} empresa(s): CNPJ, endereço e telefone passaram para estabelecimentos e telefones")
 
     ok, messages = LegacyImport().run_if_needed()
     if not ok:

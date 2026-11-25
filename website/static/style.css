@@ -868,7 +868,9 @@ h2 {
   padding: var(--space-2) 6px;
 }
 
-.infobox .code {
+.infobox .code,
+.data-table .code,
+.nowrap {
   white-space: nowrap;
 }
 
