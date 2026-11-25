@@ -145,6 +145,13 @@ def group_revisions(revisions):
     return groups
 
 
+COMPANY_LINK_NAMES = {"company_id": "ligada direto", "brand": "pela marca", "manufacturer": "pelo fabricante"}
+
+
+def company_link_name(linked_by):
+    return COMPANY_LINK_NAMES.get(linked_by, linked_by or "")
+
+
 def formatted_cnpj(cnpj):
     """ "60409075000152" -> "60.409.075/0001-52" """
     if not cnpj or len(cnpj) != 14:
@@ -183,4 +190,5 @@ def register_filters(jinja_environment):
     jinja_environment.filters["nivel"] = contributor_level
     jinja_environment.filters["acao_da_fila"] = pending_action_name
     jinja_environment.filters["cnpj"] = formatted_cnpj
+    jinja_environment.filters["ligacao_empresa"] = company_link_name
     jinja_environment.filters["valor_proposto"] = proposed_value

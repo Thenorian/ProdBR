@@ -219,7 +219,8 @@ def sign_in(request: Request):
 @app.get("/sobre", response_class=HTMLResponse)
 def about(request: Request):
     ok, ranking = ContributorDB().list_ranking(30)
-    return page(request, "about.html", ranking=ranking if ok else [])
+    _, ibpt_versions = get_from_api(["ibpt"])
+    return page(request, "about.html", ranking=ranking if ok else [], ibpt_versions=ibpt_versions.get("items", []))
 
 
 @app.get("/apoie", response_class=HTMLResponse)

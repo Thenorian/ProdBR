@@ -35,6 +35,24 @@ GET /api/v1/categories</pre>
       <p>
         A carga tributária aproximada vem da tabela do IBPT (Lei 12.741/2012), atualizada todo dia.
       </p>
+      {% if ibpt_versions %}
+        <details>
+          <summary>Versão da tabela do IBPT em cada UF</summary>
+          <table class="data-table">
+            <thead><tr><th>UF</th><th>Versão</th><th>Códigos</th><th>Válida até</th></tr></thead>
+            <tbody>
+              {% for version in ibpt_versions %}
+                <tr>
+                  <td data-label="UF">{{ version.uf }}</td>
+                  <td data-label="Versão">{{ version.version }}</td>
+                  <td data-label="Códigos">{{ version.total }}</td>
+                  <td data-label="Válida até">{{ version.valid_until | data_br }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </details>
+      {% endif %}
       <p><a class="button" href="/api/v1/download/prodbr.sqlite3">Baixar a base</a></p>
     </section>
 

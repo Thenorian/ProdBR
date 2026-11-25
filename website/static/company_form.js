@@ -5,9 +5,7 @@ const message = document.querySelector("[data-form-message]");
 const companyId = form.dataset.companyId;
 const isEditing = companyId !== "";
 
-if (!savedToken()) {
-  document.querySelector("[data-needs-token]").hidden = false;
-}
+requireTokenBeforeEditing(form);
 
 function textOrNull(value) {
   const text = (value || "").trim();
@@ -39,8 +37,8 @@ function companyFromForm() {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  if (!savedToken()) {
-    showMessage(message, "Entre com o seu token para salvar.", "error");
+  // O token pode ter vencido com o formulário aberto: pede de novo sem perder o que foi digitado.
+  if (!(await askForToken())) {
     return;
   }
 

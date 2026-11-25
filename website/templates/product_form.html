@@ -10,10 +10,6 @@
 
   <h1 class="page-title">{{ "Editar produto" if product else "Cadastrar produto" }}</h1>
 
-  <div class="notice notice--warning" data-needs-token hidden>
-    Para salvar, você precisa de um token. <a href="/entrar">Entrar</a>
-  </div>
-
   <form class="form" data-product-form data-product-id="{{ product.id if product else '' }}">
     <fieldset class="form__group">
       <legend class="form__legend">Produto</legend>
@@ -44,11 +40,30 @@
           <input class="field__input" name="manufacturer_code" maxlength="60" value="{{ product.manufacturer_code or '' if product else '' }}">
         </label>
       </div>
-      <label class="field">
-        <span class="field__label">Categoria</span>
-        <input class="field__input" name="category" maxlength="600" placeholder="Ex: Bebidas > Cervejas"
-               value="{{ product.category.path if product and product.category else '' }}">
-      </label>
+      <div class="field">
+        <label class="field__label" for="field-category">Categoria</label>
+        <div class="picker-field">
+          <input class="field__input" id="field-category" name="category" maxlength="600" placeholder="Ex: Bebidas > Cervejas"
+                 value="{{ product.category.path if product and product.category else '' }}">
+          <button class="button" type="button" data-pick-category>Escolher</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field__label">Empresa</span>
+        {% set linked_company = product.company if product and product.company and product.company.linked_by == "company_id" else none %}
+        <input type="hidden" name="company_id" value="{{ linked_company.id if linked_company else '' }}">
+        <div class="picker-field">
+          <span class="picker-field__value" data-company-name>{{ linked_company.name if linked_company else "Nenhuma escolhida" }}</span>
+          <button class="button" type="button" data-pick-company>Escolher</button>
+          <button class="button button--quiet" type="button" data-remove-company {{ "hidden" if not linked_company }}>Remover</button>
+        </div>
+        {% if product and product.company and not linked_company %}
+          <span class="muted small">Hoje achada {{ product.company.linked_by | ligacao_empresa }}: {{ product.company.name }}.</span>
+        {% else %}
+          <span class="muted small">Sem empresa escolhida, ela é achada pela marca ou pelo fabricante.</span>
+        {% endif %}
+      </div>
       <label class="field">
         <span class="field__label">Descrição</span>
         <textarea class="field__input" name="description" rows="3" maxlength="2000">{{ product.description or '' if product else '' }}</textarea>
@@ -59,11 +74,15 @@
       <legend class="form__legend">Fiscal</legend>
       <p class="muted small">Em branco, usa o da categoria.</p>
       <div class="form__row form__row--three">
-        <label class="field">
-          <span class="field__label">NCM</span>
-          <input class="field__input" name="ncm" inputmode="numeric" maxlength="8" pattern="[0-9]{8}"
-                 title="Só números, 8 dígitos" placeholder="Só números, 8 dígitos" value="{{ own_ncm }}">
-        </label>
+        <div class="field">
+          <label class="field__label" for="field-ncm">NCM</label>
+          <div class="picker-field">
+            <input class="field__input" id="field-ncm" name="ncm" inputmode="numeric" maxlength="8" pattern="[0-9]{8}"
+                   title="Só números, 8 dígitos" placeholder="8 dígitos" value="{{ own_ncm }}">
+            <button class="button" type="button" data-pick-ncm>Pesquisar</button>
+          </div>
+          <span class="muted small" data-ncm-description>{{ product.ncm.description or "" if own_ncm else "" }}</span>
+        </div>
         <label class="field">
           <span class="field__label">CEST</span>
           <input class="field__input" name="cest" inputmode="numeric" maxlength="7" pattern="[0-9]{7}"
@@ -106,4 +125,7 @@
     </div>
   </form>
 {% endblock %}
-{% block scripts %}<script src="{{ static_url('product_form.js') }}"></script>{% endblock %}
+{% block scripts %}
+  <script src="{{ static_url('picker.js') }}"></script>
+  <script src="{{ static_url('product_form.js') }}"></script>
+{% endblock %}

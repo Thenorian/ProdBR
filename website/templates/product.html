@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_copy_button.html" import copy_button %}
-{% block title %}{{ product.name }}{% if product.barcodes %} · {{ product.barcodes[0] }}{% endif %} · ProdBR{% endblock %}
+{% block title %}{{ product.name }}{% if product.barcodes %} · {{ product.barcodes[0].barcode }}{% endif %} · ProdBR{% endblock %}
 {% block description %}{{ product.name }}{% if product.brand %}, {{ product.brand }}{% endif %}{% if product.ncm %}. NCM {{ product.ncm.code }}{% endif %}{% if product.barcodes %}. Código de barras {{ product.barcodes | map(attribute="barcode") | join(", ") }}{% endif %}.{% endblock %}
 {% block head %}
   {% set structured_data = {
@@ -36,6 +36,11 @@
             <div class="barcode-item">
               <span class="copyable"><span class="code">{{ item.barcode }}</span>{{ copy_button(item.barcode, "código de barras") }}</span>
               {% if item.package_description %}<span class="muted small">{{ item.package_description }}</span>{% endif %}
+              {% if item.units_per_pack or item.net_quantity %}
+                <span class="muted small">
+                  {% if item.units_per_pack %}{{ item.units_per_pack }} un{% endif %}{% if item.units_per_pack and item.net_quantity %} × {% endif %}{% if item.net_quantity %}{{ item.net_quantity | para_copiar }} {{ item.net_unit or "" }}{% endif %}
+                </span>
+              {% endif %}
             </div>
           {% else %}<span class="muted">Não informado</span>{% endfor %}
         </dd>
@@ -67,7 +72,10 @@
         {% endif %}
         {% if product.company %}
           <dt>Empresa</dt>
-          <dd><a href="/empresa/{{ product.company.id }}">{{ product.company.name }}</a></dd>
+          <dd>
+            <a href="/empresa/{{ product.company.id }}">{{ product.company.name }}</a>
+            {% if product.company.linked_by != "company_id" %}<span class="tag">{{ product.company.linked_by | ligacao_empresa }}</span>{% endif %}
+          </dd>
         {% endif %}
         {% if product.manufacturer_code %}
           <dt>Código do fabricante</dt>
@@ -90,9 +98,15 @@
         <dd>
           {% if product.price %}
             <span class="copyable">{{ product.price.median | reais }}{{ copy_button(product.price.median | para_copiar(2), "preço") }}</span>
-            <span class="muted small">{{ product.price.reports }} informe{{ "s" if product.price.reports != 1 }} em 12 meses</span>
+            <span class="muted small">mediana · média {{ product.price.average | reais }}</span>
+            <span class="muted small">{{ product.price.reports }} informe{{ "s" if product.price.reports != 1 }} em {{ product.price.period_in_months }} meses</span>
           {% else %}<span class="muted">Sem informe</span>{% endif %}
         </dd>
+
+        <dt>Cadastrado em</dt>
+        <dd>{{ product.created_at | data_br }}</dd>
+        <dt>Atualizado em</dt>
+        <dd>{{ product.updated_at | data_br }}</dd>
       </dl>
       <a class="infobox__api" href="/api/v1/products/{{ product.id }}">Ver na API (JSON)</a>
     </aside>
@@ -108,6 +122,9 @@
       {% if product.ncm and product.ncm.full_description %}
         <section class="section">
           <h2 class="section__title">Classificação fiscal {{ copy_button(product.ncm.full_description, "classificação") }}</h2>
+          {% if product.ncm.description and product.ncm.description != product.ncm.full_description %}
+            <p><strong>{{ product.ncm.description }}</strong></p>
+          {% endif %}
           <p>{{ product.ncm.full_description }}</p>
         </section>
       {% endif %}
@@ -136,27 +153,86 @@
           <button class="button" type="submit">Filtrar</button>
         </form>
 
-        {% if product.fiscal_rules %}
-          <table class="data-table">
-            <thead>
-              <tr><th>UF</th><th>Regime</th><th>ICMS</th><th>IPI</th><th>PIS</th><th>COFINS</th><th>CBS</th><th>IBS</th><th>Fonte</th></tr>
-            </thead>
-            <tbody>
-              {% for rule in product.fiscal_rules %}
-                <tr>
-                  <td data-label="UF">{{ rule.uf or "Todas" }}</td>
-                  <td data-label="Regime">{{ rule.tax_regime | regime }}</td>
-                  <td data-label="ICMS"><span class="copyable">{{ rule.icms_rate | porcento }}{{ copy_button(rule.icms_rate | para_copiar, "ICMS") }}</span></td>
-                  <td data-label="IPI"><span class="copyable">{{ rule.ipi_rate | porcento }}{{ copy_button(rule.ipi_rate | para_copiar, "IPI") }}</span></td>
-                  <td data-label="PIS"><span class="copyable">{{ rule.pis_rate | porcento }}{{ copy_button(rule.pis_rate | para_copiar, "PIS") }}</span></td>
-                  <td data-label="COFINS"><span class="copyable">{{ rule.cofins_rate | porcento }}{{ copy_button(rule.cofins_rate | para_copiar, "COFINS") }}</span></td>
-                  <td data-label="CBS"><span class="copyable">{{ rule.cbs_rate | porcento }}{{ copy_button(rule.cbs_rate | para_copiar, "CBS") }}</span></td>
-                  <td data-label="IBS"><span class="copyable">{{ rule.ibs_rate | porcento }}{{ copy_button(rule.ibs_rate | para_copiar, "IBS") }}</span></td>
-                  <td data-label="Fonte">{{ rule.source }}</td>
-                </tr>
+        {% if product.ncm %}
+          <h3 class="subsection-title">Resumo para o cadastro</h3>
+          {% set summary = product.fiscal_summary %}
+          <dl class="summary-grid">
+            {% for field, label in [("icms_cst", "CST ICMS"), ("csosn", "CSOSN"), ("icms_rate", "ICMS"), ("fcp_rate", "FCP"),
+                                    ("icms_st_mva_rate", "MVA ST"), ("ipi_cst", "CST IPI"), ("ipi_rate", "IPI"),
+                                    ("pis_cofins_cst", "CST PIS/COFINS"), ("pis_rate", "PIS"), ("cofins_rate", "COFINS"),
+                                    ("cbs_rate", "CBS"), ("ibs_rate", "IBS"), ("ii_rate", "II")] %}
+              {% set value = summary[field] %}
+              <div class="summary-grid__item" {% if summary.sources[field] %}title="Fonte: {{ summary.sources[field] }}"{% endif %}>
+                <dt>{{ label }}</dt>
+                <dd>
+                  {% if value is none %}<span class="muted">—</span>
+                  {% elif field.endswith("_rate") %}<span class="copyable">{{ value | porcento }}{{ copy_button(value | para_copiar, label) }}</span>
+                  {% else %}<span class="copyable"><span class="code">{{ value }}</span>{{ copy_button(value, label) }}</span>{% endif %}
+                  {% if summary.sources[field] %}<span class="muted small">{{ summary.sources[field] }}</span>{% endif %}
+                </dd>
+              </div>
+            {% endfor %}
+          </dl>
+
+          <h3 class="subsection-title">Carga aproximada (IBPT, Lei 12.741/2012)</h3>
+          {% if product.ibpt %}
+            {% set ibpt = product.ibpt %}
+            <dl class="summary-grid">
+              {% for field, label in [("federal_national_rate", "Federal (nacional)"), ("federal_imported_rate", "Federal (importado)"),
+                                      ("state_rate", "Estadual"), ("municipal_rate", "Municipal")] %}
+                <div class="summary-grid__item">
+                  <dt>{{ label }}</dt>
+                  <dd><span class="copyable">{{ ibpt[field] | porcento }}{{ copy_button(ibpt[field] | para_copiar, label) }}</span></dd>
+                </div>
               {% endfor %}
-            </tbody>
-          </table>
+            </dl>
+            <p class="muted small">
+              {{ ibpt.uf }} · tabela {{ ibpt.version }} · válida de {{ ibpt.valid_from | data_br }} a {{ ibpt.valid_until | data_br }} · {{ ibpt.source }}
+              {% if ibpt.description %}· {{ ibpt.description }}{% endif %}
+            </p>
+          {% elif selected_uf %}
+            <p class="empty">Este NCM não está na tabela do IBPT de {{ selected_uf }}.</p>
+          {% else %}
+            <p class="empty">Escolha a UF acima para ver a carga aproximada.</p>
+          {% endif %}
+        {% endif %}
+
+        <h3 class="subsection-title">Regras cadastradas</h3>
+        {% if product.fiscal_rules %}
+          <div class="table-scroll">
+            <table class="data-table data-table--wide">
+              <thead>
+                <tr>
+                  <th>UF</th><th>Regime</th><th>CEST</th><th>CST ICMS</th><th>CSOSN</th><th>ICMS</th><th>FCP</th><th>MVA ST</th>
+                  <th>CST IPI</th><th>IPI</th><th>CST PIS/COFINS</th><th>PIS</th><th>COFINS</th><th>CBS</th><th>IBS</th><th>II</th>
+                  <th>Vigência</th><th>Fonte</th><th>Observação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for rule in product.fiscal_rules %}
+                  <tr>
+                    <td data-label="UF">{{ rule.uf or "Todas" }}</td>
+                    <td data-label="Regime">{{ rule.tax_regime | regime }}</td>
+                    <td data-label="CEST">{{ rule.cest or "—" }}</td>
+                    <td data-label="CST ICMS">{{ rule.icms_cst or "—" }}</td>
+                    <td data-label="CSOSN">{{ rule.csosn or "—" }}</td>
+                    {% for field, label in [("icms_rate", "ICMS"), ("fcp_rate", "FCP"), ("icms_st_mva_rate", "MVA ST")] %}
+                      <td data-label="{{ label }}"><span class="copyable">{{ rule[field] | porcento }}{{ copy_button(rule[field] | para_copiar, label) }}</span></td>
+                    {% endfor %}
+                    <td data-label="CST IPI">{{ rule.ipi_cst or "—" }}</td>
+                    <td data-label="IPI"><span class="copyable">{{ rule.ipi_rate | porcento }}{{ copy_button(rule.ipi_rate | para_copiar, "IPI") }}</span></td>
+                    <td data-label="CST PIS/COFINS">{{ rule.pis_cofins_cst or "—" }}</td>
+                    {% for field, label in [("pis_rate", "PIS"), ("cofins_rate", "COFINS"), ("cbs_rate", "CBS"), ("ibs_rate", "IBS"), ("ii_rate", "II")] %}
+                      <td data-label="{{ label }}"><span class="copyable">{{ rule[field] | porcento }}{{ copy_button(rule[field] | para_copiar, label) }}</span></td>
+                    {% endfor %}
+                    <td data-label="Vigência">{{ rule.valid_from | data_br }}{% if rule.valid_until %} a {{ rule.valid_until | data_br }}{% endif %}</td>
+                    <td data-label="Fonte">{{ rule.source }}</td>
+                    <td data-label="Observação">{{ rule.notes or "—" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
           <p class="muted small">Valores de referência. Confira com a contabilidade antes de emitir nota.</p>
         {% elif product.ncm %}
           <p class="empty">Nenhuma regra fiscal cadastrada para este NCM.</p>

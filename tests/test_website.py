@@ -154,3 +154,9 @@ def test_perfil_da_empresa_lista_marcas_e_produtos(site, client, auth):
     assert site.get("/empresa/nova").status_code == 200
     assert site.get(f"/empresa/{company['id']}/editar").status_code == 200
     assert site.get("/empresa/nao-existe").status_code == 404
+
+
+def test_titulo_da_pagina_mostra_so_o_numero_do_codigo_de_barras(site, client, auth):
+    product = new_product(client, auth)
+    page = site.get(f"/produto/{product['id']}")
+    assert "<title>Café Torrado 500g · 7891000100103 · ProdBR</title>" in page.text

@@ -32,7 +32,9 @@
         </ul>
 
         <p class="queue-item__meta">
-          {{ change.contributor }} · {{ change.created_at | data_br }} · {{ change.reason }}
+          {{ change.contributor }} · enviada em {{ change.created_at | data_br }}
+          {% if change.resolved_at %}· decidida em {{ change.resolved_at | data_br }}{% endif %}
+          · {{ change.reason }}
         </p>
         {% if change.result_message %}
           <p class="notice notice--warning">{{ change.result_message }}</p>

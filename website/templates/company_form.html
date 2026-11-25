@@ -4,10 +4,6 @@
 {% block content %}
   <h1 class="page-title">{{ "Editar empresa" if company else "Cadastrar empresa" }}</h1>
 
-  <div class="notice notice--warning" data-needs-token hidden>
-    Para salvar, você precisa de um token. <a href="/entrar">Entrar</a>
-  </div>
-
   <form class="form" data-company-form data-company-id="{{ company.id if company else '' }}">
     <fieldset class="form__group">
       <legend class="form__legend">Empresa</legend>
@@ -58,7 +54,12 @@
         </label>
         <label class="field">
           <span class="field__label">UF</span>
-          <input class="field__input" name="uf" maxlength="2" value="{{ company.uf or '' if company else '' }}">
+          <select class="field__input" name="uf">
+            <option value="">Não informada</option>
+            {% for uf in ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"] %}
+              <option value="{{ uf }}" {{ "selected" if company and company.uf == uf }}>{{ uf }}</option>
+            {% endfor %}
+          </select>
         </label>
       </div>
       <label class="field">

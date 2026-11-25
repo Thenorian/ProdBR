@@ -23,7 +23,10 @@
         {% if company.phone %}<dt>Telefone</dt><dd>{{ company.phone }}</dd>{% endif %}
         {% if company.website %}<dt>Site</dt><dd><a href="{{ company.website }}" rel="noopener nofollow ugc">{{ company.website }}</a></dd>{% endif %}
         {% if company.source %}<dt>Fonte</dt><dd>{{ company.source }}</dd>{% endif %}
+        <dt>Cadastrada em</dt><dd>{{ company.created_at | data_br }}</dd>
+        <dt>Atualizada em</dt><dd>{{ company.updated_at | data_br }}</dd>
       </dl>
+      <a class="infobox__api" href="/api/v1/companies/{{ company.id }}">Ver na API (JSON)</a>
     </aside>
 
     <div class="article__body">

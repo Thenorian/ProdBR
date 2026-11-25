@@ -8,8 +8,7 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  if (!savedToken()) {
-    showMessage(queueMessage, "Entre com o seu token para votar.", "error");
+  if (!(await askForToken())) {
     return;
   }
 

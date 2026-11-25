@@ -12,7 +12,11 @@
       {% else %}
         <ul class="revision-list__fields">
           {% for revision in change.changes %}
-            <li><strong>{{ revision.field | campo }}</strong>: {{ (revision.new_value or "vazio") | truncate(80) }}</li>
+            <li>
+              <strong>{{ revision.field | campo }}</strong>:
+              {% if change.action == "update" %}<del class="muted">{{ (revision.old_value or "vazio") | truncate(80) }}</del> →{% endif %}
+              {{ (revision.new_value or "vazio") | truncate(80) }}
+            </li>
           {% endfor %}
         </ul>
       {% endif %}
