@@ -1,6 +1,32 @@
 {% extends "base.html" %}
 {% block title %}{{ "Editar " ~ product.name if product else "Cadastrar produto" }} · ProdBR{% endblock %}
 {% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% macro barcode_row(item) %}
+  <tr>
+    <td data-label="Código de barras">
+      <input class="field__input" data-column="barcode" required inputmode="numeric" maxlength="14" pattern="[0-9]{8,14}"
+             title="8 a 14 dígitos" value="{{ item.barcode if item else '' }}">
+    </td>
+    <td data-label="Embalagem">
+      <input class="field__input" data-column="package" maxlength="120" placeholder="Ex: 6x350ml" value="{{ item.package_description or '' if item else '' }}">
+    </td>
+    <td data-label="Itens por pacote">
+      <input class="field__input" data-column="units_per_pack" type="number" min="1" step="1" value="{{ item.units_per_pack or '' if item else '' }}">
+    </td>
+    <td data-label="Quantidade">
+      <input class="field__input" data-column="net_quantity" type="number" min="0" step="any" value="{{ item.net_quantity or '' if item else '' }}">
+    </td>
+    <td data-label="Unidade">
+      <select class="field__input" data-column="net_unit">
+        <option value="">—</option>
+        {% for unit in ['un', 'g', 'kg', 'mg', 'ml', 'l'] %}
+          <option value="{{ unit }}" {{ "selected" if item and item.net_unit == unit }}>{{ unit }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td><button class="button button--quiet" type="button" data-remove-row>Remover</button></td>
+  </tr>
+{% endmacro %}
 {% block content %}
   {# Na edição, o NCM, CEST e origem herdados da categoria não aparecem como se fossem do produto. #}
   {% set inherited = product.fiscal_data_from_category if product else [] %}
@@ -27,19 +53,10 @@
           <input class="field__input" name="manufacturer" maxlength="120" value="{{ product.manufacturer or '' if product else '' }}">
         </label>
       </div>
-      <div class="form__row">
-        <label class="field">
-          <span class="field__label">Códigos de barras</span>
-          <textarea class="field__input" name="barcodes" rows="2" placeholder="Um por linha. Ex: 7891000100103, 6x350ml"
-          >{% if product %}{% for item in product.barcodes %}{{ item.barcode }}{% if item.package_description %}, {{ item.package_description }}{% endif %}
-{% endfor %}{% endif %}</textarea>
-          <span class="muted small">Código, e se quiser a embalagem depois da vírgula.</span>
-        </label>
-        <label class="field">
-          <span class="field__label">Código do fabricante</span>
-          <input class="field__input" name="manufacturer_code" maxlength="60" value="{{ product.manufacturer_code or '' if product else '' }}">
-        </label>
-      </div>
+      <label class="field">
+        <span class="field__label">Código do fabricante</span>
+        <input class="field__input" name="manufacturer_code" maxlength="60" value="{{ product.manufacturer_code or '' if product else '' }}">
+      </label>
       <div class="field">
         <label class="field__label" for="field-category">Categoria</label>
         <div class="picker-field">
@@ -64,6 +81,24 @@
           <span class="muted small">Sem empresa escolhida, ela é achada pela marca ou pelo fabricante.</span>
         {% endif %}
       </div>
+      <div class="field">
+        <span class="field__label">Códigos de barras</span>
+        <div class="table-scroll">
+          <table class="data-table data-table--striped editable-table" data-editable-table="barcodes">
+            <thead>
+              <tr><th>Código de barras *</th><th>Embalagem</th><th>Itens por pacote</th><th>Quantidade</th><th>Unidade</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% if product %}{% for item in product.barcodes %}{{ barcode_row(item) }}{% endfor %}{% endif %}
+            </tbody>
+          </table>
+        </div>
+        <p class="muted small" data-empty-table="barcodes">Nenhum código de barras.</p>
+        <template data-row-template="barcodes">{{ barcode_row(none) }}</template>
+        <div><button class="button" type="button" data-add-row="barcodes">Adicionar código de barras</button></div>
+        <span class="muted small">Embalagem, itens e quantidade vazios são lidos do texto da embalagem quando dá.</span>
+      </div>
+
       <label class="field">
         <span class="field__label">Descrição</span>
         <textarea class="field__input" name="description" rows="3" maxlength="2000">{{ product.description or '' if product else '' }}</textarea>
@@ -127,5 +162,6 @@
 {% endblock %}
 {% block scripts %}
   <script src="{{ static_url('picker.js') }}"></script>
+  <script src="{{ static_url('editable_table.js') }}"></script>
   <script src="{{ static_url('product_form.js') }}"></script>
 {% endblock %}

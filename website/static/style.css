@@ -852,37 +852,48 @@ h2 {
   background: var(--color-accent-soft);
 }
 
-/* Resumo fiscal e IBPT na página do produto */
+/* Tabelas largas (resumo fiscal, regras) e linhas listradas */
 
 .subsection-title {
   margin: var(--space-5) 0 var(--space-3);
   font-size: 16px;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: var(--space-2);
-  margin: 0;
-}
-
-.summary-grid__item {
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-}
-
-.summary-grid__item dt {
-  color: var(--color-text-muted);
+.data-table--compact {
   font-size: 13px;
 }
 
-.summary-grid__item dd {
-  display: flex;
-  flex-direction: column;
-  margin: var(--space-1) 0 0;
-  font-weight: 600;
+.data-table--compact th,
+.data-table--compact td {
+  padding: var(--space-2) 6px;
+}
+
+.infobox .code {
+  white-space: nowrap;
+}
+
+.data-table__sources td {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.data-table--striped tbody tr:nth-child(even) {
+  background: var(--color-surface-muted);
+}
+
+.editable-table td {
+  padding: var(--space-1) var(--space-2);
+  vertical-align: middle;
+}
+
+.editable-table .field__input {
+  width: 100%;
+  min-width: 90px;
+}
+
+.editable-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
 }
 
 .table-scroll {

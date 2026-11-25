@@ -12,15 +12,11 @@ function textOrNull(value) {
   return text === "" ? null : text;
 }
 
-function brandsFromText(text) {
-  return (text || "").split("\n").map((brand) => brand.trim()).filter((brand) => brand !== "");
-}
-
 function companyFromForm() {
   const fields = new FormData(form);
   return {
     name: fields.get("name").trim(),
-    brands: brandsFromText(fields.get("brands")),
+    brands: editableTableRows("brands").map((row) => row.brand),
     legal_name: textOrNull(fields.get("legal_name")),
     cnpj: textOrNull(fields.get("cnpj")),
     description: textOrNull(fields.get("description")),

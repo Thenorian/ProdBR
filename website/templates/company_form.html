@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block title %}{{ "Editar " ~ company.name if company else "Cadastrar empresa" }} · ProdBR{% endblock %}
 {% block head %}<meta name="robots" content="noindex">{% endblock %}
+{% macro brand_row(brand) %}
+  <tr>
+    <td data-label="Marca"><input class="field__input" data-column="brand" required maxlength="120" value="{{ brand }}"></td>
+    <td><button class="button button--quiet" type="button" data-remove-row>Remover</button></td>
+  </tr>
+{% endmacro %}
 {% block content %}
   <h1 class="page-title">{{ "Editar empresa" if company else "Cadastrar empresa" }}</h1>
 
@@ -11,10 +17,18 @@
         <span class="field__label">Nome *</span>
         <input class="field__input" name="name" required maxlength="200" value="{{ company.name if company else '' }}">
       </label>
-      <label class="field">
-        <span class="field__label">Marcas (uma por linha)</span>
-        <textarea class="field__input" name="brands" rows="3">{{ company.brands | join("\n") if company else '' }}</textarea>
-      </label>
+      <div class="field">
+        <span class="field__label">Marcas</span>
+        <table class="data-table data-table--striped editable-table" data-editable-table="brands">
+          <thead><tr><th>Marca *</th><th></th></tr></thead>
+          <tbody>
+            {% if company %}{% for brand in company.brands %}{{ brand_row(brand) }}{% endfor %}{% endif %}
+          </tbody>
+        </table>
+        <p class="muted small" data-empty-table="brands">Nenhuma marca.</p>
+        <template data-row-template="brands">{{ brand_row("") }}</template>
+        <div><button class="button" type="button" data-add-row="brands">Adicionar marca</button></div>
+      </div>
       <div class="form__row">
         <label class="field">
           <span class="field__label">Razão social</span>
@@ -82,4 +96,7 @@
     </div>
   </form>
 {% endblock %}
-{% block scripts %}<script src="{{ static_url('company_form.js') }}"></script>{% endblock %}
+{% block scripts %}
+  <script src="{{ static_url('editable_table.js') }}"></script>
+  <script src="{{ static_url('company_form.js') }}"></script>
+{% endblock %}
