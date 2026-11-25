@@ -114,13 +114,34 @@ class ContributorDB(CommunityDatabase):
         )
 
     def list_ranking(self, limit):
-        return self.select(
+        """Quem mais contribuiu: mais edições primeiro (empate: mais reputação). Só quem já contribuiu."""
+        ok, contributors = self.select(
             "contributors",
             ["username", "reputation", "edit_count", "created_at", "last_contribution_at"],
             where={"edit_count": (">", 0)},
-            order_by=["reputation DESC", "username"],
+            order_by=["edit_count DESC", "reputation DESC", "username"],
             limit=limit,
         )
+        if not ok:
+            return False, contributors
+        return True, [{**contributor, "level": contributor_level(contributor["reputation"])} for contributor in contributors]
+
+    def totals_by_level(self):
+        """
+        Quantas pessoas e quantas contribuições há em cada nível, do Iniciante ao Supremo.
+
+            [{"level": "Iniciante", "people": 40, "contributions": 310}, {"level": "Editor", ...}, ...]
+        """
+        ok, contributors = self.select("contributors", ["reputation", "edit_count"], where={"edit_count": (">", 0)})
+        if not ok:
+            return False, contributors
+
+        totals = {level: {"level": level, "people": 0, "contributions": 0} for _, level in reversed(CONTRIBUTOR_LEVELS)}
+        for contributor in contributors:
+            level_totals = totals[contributor_level(contributor["reputation"])]
+            level_totals["people"] += 1
+            level_totals["contributions"] += contributor["edit_count"]
+        return True, list(totals.values())
 
     def _create_token(self, contributor_id, username):
         token = secrets.token_urlsafe(32)

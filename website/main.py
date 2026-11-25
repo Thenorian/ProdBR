@@ -222,9 +222,40 @@ def sign_in(request: Request):
 
 @app.get("/sobre", response_class=HTMLResponse)
 def about(request: Request):
-    ok, ranking = ContributorDB().list_ranking(30)
     _, ibpt_versions = get_from_api(["ibpt"])
-    return page(request, "about.html", ranking=ranking if ok else [], ibpt_versions=ibpt_versions.get("items", []))
+    return page(request, "about.html", ibpt_versions=ibpt_versions.get("items", []))
+
+
+PODIUM_SIZE = 3
+PEOPLE_PER_RANKING_COLUMN = 50
+RANKING_COLUMNS = 3
+
+
+@app.get("/contribuidores", response_class=HTMLResponse)
+def contributors_page(request: Request):
+    """
+    Pódio com os 3 que mais contribuíram e, abaixo, três colunas de até 50 pessoas cada
+    (4º ao 53º, 54º ao 103º, 104º ao 153º). A reputação e o nível não existem na API de
+    propósito, por isso esta página lê do banco da comunidade.
+    """
+    contributors = ContributorDB()
+    ok, ranking = contributors.list_ranking(PODIUM_SIZE + PEOPLE_PER_RANKING_COLUMN * RANKING_COLUMNS)
+    ranking = ranking if ok else []
+    ok, totals_by_level = contributors.totals_by_level()
+
+    for position, contributor in enumerate(ranking, start=1):
+        contributor["position"] = position
+
+    after_podium = ranking[PODIUM_SIZE:]
+    columns = [
+        after_podium[start:start + PEOPLE_PER_RANKING_COLUMN]
+        for start in range(0, PEOPLE_PER_RANKING_COLUMN * RANKING_COLUMNS, PEOPLE_PER_RANKING_COLUMN)
+    ]
+    return page(
+        request, "contributors.html",
+        podium=ranking[:PODIUM_SIZE], columns=[column for column in columns if column],
+        totals_by_level=totals_by_level if ok else [],
+    )
 
 
 @app.get("/apoie", response_class=HTMLResponse)
@@ -355,7 +386,7 @@ def old_ncm_address(code: str):
 
 @app.get("/hall-da-fama")
 def old_hall_of_fame_address():
-    return RedirectResponse("/sobre#quem-contribui", status_code=301)
+    return RedirectResponse("/contribuidores", status_code=301)
 
 
 @app.get("/mod")

@@ -152,6 +152,16 @@ def company_link_name(linked_by):
     return COMPANY_LINK_NAMES.get(linked_by, linked_by or "")
 
 
+def level_css_name(level):
+    """ "Iniciante" -> "iniciante": usado na classe de cor da etiqueta de nível (level-tag--iniciante). """
+    return str(level or "").lower()
+
+
+def thousands(value):
+    """ 12345 -> "12.345" """
+    return f"{int(value or 0):,}".replace(",", ".")
+
+
 def formatted_cnpj(cnpj):
     """ "60409075000152" -> "60.409.075/0001-52" """
     if not cnpj or len(cnpj) != 14:
@@ -190,5 +200,7 @@ def register_filters(jinja_environment):
     jinja_environment.filters["nivel"] = contributor_level
     jinja_environment.filters["acao_da_fila"] = pending_action_name
     jinja_environment.filters["cnpj"] = formatted_cnpj
+    jinja_environment.filters["classe_nivel"] = level_css_name
+    jinja_environment.filters["milhar"] = thousands
     jinja_environment.filters["ligacao_empresa"] = company_link_name
     jinja_environment.filters["valor_proposto"] = proposed_value

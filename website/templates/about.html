@@ -5,11 +5,40 @@
     <h1 class="page-title">Sobre o ProdBR</h1>
     <p>
       Uma base aberta de produtos brasileiros, para nenhum sistema precisar cadastrar do zero.
-      Pelo código de barras vêm nome, marca, NCM, categoria, preço médio e tributação de referência.
+      Pelo código de barras vêm nome, marca, empresa, NCM, categoria, preço de venda e tributação de referência.
     </p>
-    <p>
-      Qualquer pessoa consulta e contribui. Toda alteração fica registrada no histórico, como no Git.
-    </p>
+
+    <section class="section">
+      <h2 class="section__title">Como surgiu</h2>
+      <p>
+        O ProdBR nasceu dentro da Thenorian para resolver um problema dos nossos próprios sistemas,
+        como o Simple ERP e o OS-Mechanical: cada cliente cadastrava os mesmos produtos à mão,
+        com NCM, CEST e tributação que mudam o tempo todo.
+      </p>
+      <p>
+        Em vez de manter essa base fechada, decidimos abrir. Hoje qualquer pessoa ou sistema consulta
+        de graça, sem cadastro, e qualquer um pode contribuir, como numa Wikipedia de produtos.
+        Quanto mais gente usa e corrige, melhor fica para todos.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2 class="section__title">Como funciona</h2>
+      <p>
+        Toda alteração fica registrada no histórico público, como no Git. Quem está começando tem as
+        alterações revisadas pela comunidade na <a href="/fila">fila de votação</a>; com o tempo,
+        ganha reputação e passa a gravar direto. Veja <a href="/contribuidores">quem mais contribui</a>.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2 class="section__title">Quem mantém</h2>
+      <p>
+        O ProdBR é desenvolvido e mantido pela equipe da Thenorian. O código é aberto e está no
+        <a href="https://github.com/Thenorian/ProdBR" rel="noopener">GitHub</a>, onde dá para acompanhar
+        tudo e sugerir melhorias.
+      </p>
+    </section>
 
     <section class="section">
       <h2 class="section__title">API</h2>
@@ -56,25 +85,5 @@ GET /api/v1/categories</pre>
       <p><a class="button" href="/api/v1/download/prodbr.sqlite3">Baixar a base</a></p>
     </section>
 
-    <section class="section" id="quem-contribui">
-      <h2 class="section__title">Quem contribui</h2>
-      {% if ranking %}
-        <table class="data-table">
-          <thead><tr><th>Usuário</th><th>Nível</th><th>Edições</th><th>Desde</th></tr></thead>
-          <tbody>
-            {% for contributor in ranking %}
-              <tr>
-                <td data-label="Usuário"><strong>{{ contributor.username }}</strong></td>
-                <td data-label="Nível">{{ contributor.reputation | nivel }}</td>
-                <td data-label="Edições">{{ contributor.edit_count }}</td>
-                <td data-label="Desde">{{ contributor.created_at | data_br }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <p class="empty">Ainda ninguém. <a href="/entrar">Seja o primeiro</a>.</p>
-      {% endif %}
-    </section>
   </div>
 {% endblock %}

@@ -174,3 +174,23 @@ def test_pagina_do_produto_desenha_o_grafico_de_preco(site, client, auth):
 
     no_prices = client.post("/products", json={"name": "Sem preço", "reason": "teste"}, headers=auth).json()
     assert "Ninguém informou o preço" in site.get(f"/produto/{no_prices['id']}").text
+
+
+def test_pagina_de_contribuidores_com_podio_colunas_e_niveis(site, client):
+    from database.contributor import ContributorDB
+
+    for number in range(60):
+        ContributorDB().insert("contributors", {
+            "id": f"id-{number}", "username": f"pessoa{number:02d}",
+            "edit_count": 1000 - number, "reputation": 2000 if number == 0 else 60,
+        })
+
+    page = site.get("/contribuidores")
+    assert page.status_code == 200
+    assert page.text.index("pessoa01") < page.text.index("pessoa00") < page.text.index("pessoa02")  # pódio: 2º, 1º, 3º
+    assert 'class="level-tag level-tag--renomado">Renomado' in page.text
+    assert '<ol class="ranking-list" start="4">' in page.text
+    assert '<ol class="ranking-list" start="54">' in page.text
+    assert "pessoa59" in page.text
+    assert "level-pill--editor" in page.text
+    assert site.get("/hall-da-fama", follow_redirects=False).headers["location"] == "/contribuidores"

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Quem contribui · ProdBR{% endblock %}
+{% block description %}As pessoas que mais contribuem com a base aberta de produtos brasileiros.{% endblock %}
+{% macro level_tag(level) %}<span class="level-tag level-tag--{{ level | classe_nivel }}">{{ level }}</span>{% endmacro %}
+{% block content %}
+  <h1 class="page-title">Quem contribui</h1>
+  <p class="muted">Cada campo cadastrado ou corrigido conta uma contribuição.</p>
+
+  {% if totals_by_level %}
+    <ul class="level-pills" aria-label="Contribuições por nível">
+      {% for total in totals_by_level %}
+        <li class="level-pill level-pill--{{ total.level | classe_nivel }}">
+          <strong>{{ total.level }}</strong>
+          <span>{{ total.contributions | milhar }} contribuições</span>
+          <span class="muted">{{ total.people | milhar }} pessoa{{ "s" if total.people != 1 }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if podium %}
+    {# Ordem visual do pódio: 2º, 1º, 3º (o primeiro fica no meio e mais alto). #}
+    <ol class="podium" aria-label="Os 3 que mais contribuíram">
+      {% for contributor in [podium[1] if podium | length > 1 else none, podium[0], podium[2] if podium | length > 2 else none] %}
+        {% if contributor %}
+          <li class="podium__place podium__place--{{ contributor.position }}">
+            <span class="podium__medal" aria-hidden="true">{{ contributor.position }}º</span>
+            <strong class="podium__name">{{ contributor.username }}</strong>
+            <span class="podium__count">{{ contributor.edit_count | milhar }} contribuições</span>
+            {{ level_tag(contributor.level) }}
+            <div class="podium__step"><span class="visually-hidden">{{ contributor.position }}º lugar</span></div>
+          </li>
+        {% endif %}
+      {% endfor %}
+    </ol>
+  {% else %}
+    <p class="empty">Ainda ninguém. <a href="/entrar">Seja o primeiro</a>.</p>
+  {% endif %}
+
+  {% if columns %}
+    <div class="ranking-columns">
+      {% for column in columns %}
+        <ol class="ranking-list" start="{{ column[0].position }}">
+          {% for contributor in column %}
+            <li class="ranking-list__item">
+              <span class="ranking-list__position">{{ contributor.position }}º</span>
+              <span class="ranking-list__name">{{ contributor.username }}</span>
+              <span class="ranking-list__count">{{ contributor.edit_count | milhar }}</span>
+              {{ level_tag(contributor.level) }}
+            </li>
+          {% endfor %}
+        </ol>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}
