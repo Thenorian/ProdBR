@@ -162,6 +162,11 @@ def thousands(value):
     return f"{int(value or 0):,}".replace(",", ".")
 
 
+def company_address(company):
+    """ Endereço da página da empresa: pelo CNPJ quando tem, senão pelo id.  {"cnpj": "6040..."} -> "/empresa/6040..." """
+    return f"/empresa/{company.get('cnpj') or company['id']}"
+
+
 def formatted_cnpj(cnpj):
     """ "60409075000152" -> "60.409.075/0001-52" """
     if not cnpj or len(cnpj) != 14:
@@ -200,6 +205,7 @@ def register_filters(jinja_environment):
     jinja_environment.filters["nivel"] = contributor_level
     jinja_environment.filters["acao_da_fila"] = pending_action_name
     jinja_environment.filters["cnpj"] = formatted_cnpj
+    jinja_environment.filters["endereco_empresa"] = company_address
     jinja_environment.filters["classe_nivel"] = level_css_name
     jinja_environment.filters["milhar"] = thousands
     jinja_environment.filters["ligacao_empresa"] = company_link_name

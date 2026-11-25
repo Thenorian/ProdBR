@@ -131,7 +131,12 @@ A reputação aparece só no site (página Sobre), nunca na API.
 Perfil de empresa no estilo Wikipedia: qualquer pessoa cadastra e completa
 (`POST`/`PUT /api/v1/companies`, ou as páginas `/empresas` e `/empresa/{id}` do
 site). Só o nome é obrigatório; CNPJ, razão social, site, telefone, endereço e
-marcas são opcionais. O CNPJ, quando vem, é conferido e não se repete.
+marcas são opcionais. O CNPJ, quando vem, é conferido (numérico ou
+alfanumérico, o formato novo da Receita) e não se repete.
+
+As rotas da empresa usam o CNPJ: `GET /api/v1/companies/60409075000152`
+(sem a barra; pontos e hífen são aceitos). Empresa sem CNPJ usa o id. O
+`company_id` do produto também aceita o CNPJ.
 
 Os produtos aparecem no perfil (`GET /api/v1/companies/{id}/products`) quando:
 

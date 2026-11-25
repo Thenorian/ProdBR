@@ -143,16 +143,17 @@ def test_perfil_da_empresa_lista_marcas_e_produtos(site, client, auth):
     assert 'href="https://www.nestle.com.br"' in page.text
 
     product_page = site.get(f"/produto/{product['id']}")
-    assert f'href="/empresa/{company["id"]}"' in product_page.text
+    assert 'href="/empresa/60409075000152"' in product_page.text
 
     website_main.sitemap_cache["xml"] = None
-    assert f"/empresa/{company['id']}</loc>" in site.get("/sitemap.xml").text
+    assert "/empresa/60409075000152</loc>" in site.get("/sitemap.xml").text
 
     listing = site.get("/empresas", params={"q": "Nescau"})
-    assert f'href="/empresa/{company["id"]}"' in listing.text
+    assert 'href="/empresa/60409075000152"' in listing.text
 
     assert site.get("/empresa/nova").status_code == 200
     assert site.get(f"/empresa/{company['id']}/editar").status_code == 200
+    assert site.get("/empresa/60409075000152").status_code == 200
     assert site.get("/empresa/nao-existe").status_code == 404
 
 

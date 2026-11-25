@@ -60,7 +60,7 @@ def test_produtos_aparecem_pela_marca_pelo_fabricante_e_pelo_vinculo(client, aut
     assert client.get(f"/products/{by_brand['id']}").json()["company"]["linked_by"] == "brand"
     assert client.get(f"/products/{by_manufacturer['id']}").json()["company"]["linked_by"] == "manufacturer"
     assert client.get(f"/products/{linked['id']}").json()["company"] == {
-        "id": company["id"], "name": "Nestlé", "linked_by": "company_id",
+        "id": company["id"], "name": "Nestlé", "cnpj": "60409075000152", "linked_by": "company_id",
     }
 
 
@@ -106,3 +106,32 @@ def test_sql_injection_na_busca_de_empresa_nao_quebra_nada(client, auth):
     response = client.get("/companies", params={"q": "'; DROP TABLE companies; --"})
     assert response.status_code == 200
     assert client.get("/companies").json()["total"] == 1
+
+
+def test_rotas_da_empresa_pelo_cnpj(client, auth):
+    company = new_company(client, auth)
+    for cnpj in ("60409075000152", "60.409.075.0001-52"):
+        assert client.get(f"/companies/{cnpj}").json()["id"] == company["id"], cnpj
+    assert client.get(f"/companies/{company['id']}").status_code == 200
+    assert client.get("/companies/60409075000152/products").status_code == 200
+    assert client.get("/companies/60409075000152/revisions").json()["total"] > 0
+    assert client.get("/companies/11222333000181").status_code == 404
+
+    response = client.put("/companies/60409075000152", json={"city": "Vevey", "reason": "cidade"}, headers=auth)
+    assert response.json()["company"]["city"] == "Vevey"
+
+
+def test_cnpj_alfanumerico(client, auth):
+    company = new_company(client, auth, name="Empresa Nova", cnpj="12.ABC.345/01DE-35", brands=None)
+    assert company["cnpj"] == "12ABC34501DE35"
+    assert client.get("/companies/12abc34501de35").json()["id"] == company["id"]
+    assert client.get("/companies", params={"q": "12.ABC.345/01DE-35"}).json()["total"] == 1
+    assert client.post("/companies", json={**NESTLE, "name": "X", "cnpj": "12ABC34501DE36"}, headers=auth).status_code == 400
+
+
+def test_produto_aponta_para_a_empresa_pelo_cnpj(client, auth):
+    company = new_company(client, auth)
+    product = new_product(client, auth, name="Água", company_id="60.409.075/0001-52")
+    assert client.get(f"/products/{product['id']}").json()["company"] == {
+        "id": company["id"], "name": "Nestlé", "cnpj": "60409075000152", "linked_by": "company_id",
+    }

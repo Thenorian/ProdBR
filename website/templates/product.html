@@ -73,7 +73,7 @@
         {% if product.company %}
           <dt>Empresa</dt>
           <dd>
-            <a href="/empresa/{{ product.company.id }}">{{ product.company.name }}</a>
+            <a href="{{ product.company | endereco_empresa }}">{{ product.company.name }}</a>
             {% if product.company.linked_by != "company_id" %}<span class="tag">{{ product.company.linked_by | ligacao_empresa }}</span>{% endif %}
           </dd>
         {% endif %}

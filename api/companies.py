@@ -3,7 +3,7 @@ Perfil de empresa, como um verbete da Wikipedia: qualquer pessoa cadastra e comp
 Os produtos aparecem no perfil quando estão ligados à empresa (company_id do produto)
 ou, sem isso, quando a marca é dela ou o fabricante tem o nome dela.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field
 
 from api.auth import register_contribution, require_contributor
@@ -25,7 +25,7 @@ class CompanyInput(BaseModel):
     """Na criação, só name é obrigatório. Na edição, mande só o que quer mudar (null apaga o campo)."""
     name: str | None = Field(None, max_length=200, description="Nome como a empresa é conhecida. Ex: Nestlé")
     legal_name: str | None = Field(None, max_length=200, description="Razão social.")
-    cnpj: str | None = Field(None, max_length=18, description="Opcional. Com ou sem pontuação.")
+    cnpj: str | None = Field(None, max_length=18, description="Opcional. Numérico ou alfanumérico, com ou sem pontuação.")
     description: str | None = Field(None, max_length=2000)
     website: str | None = Field(None, max_length=255, description="Começando com http:// ou https://")
     phone: str | None = Field(None, max_length=30)
@@ -40,6 +40,18 @@ class CompanyInput(BaseModel):
     reason: str = Field(..., min_length=3, max_length=300, description="Motivo da alteração, como uma mensagem de commit.")
 
 
+COMPANY_PATH = Path(
+    ...,
+    description="CNPJ da empresa, numérico ou alfanumérico, sem a barra (ex: 60409075000152 ou 12ABC34501DE35). "
+                "Empresa sem CNPJ usa o id.",
+)
+
+
+def company_id_or_404(cnpj_or_id):
+    company_id = result_or_error(CompanyDB().find_id(cnpj_or_id), 500)
+    return found_or_404(company_id, "Empresa não encontrada.")
+
+
 @router.get("/companies", dependencies=[Depends(limit_reads)])
 def search_companies(q: str | None = None, uf: str | None = None, limit: int = DEFAULT_PAGE_SIZE, offset: int = 0):
     """Busca empresas por nome, razão social, CNPJ ou marca. Sem filtro, lista todas em ordem alfabética."""
@@ -49,30 +61,28 @@ def search_companies(q: str | None = None, uf: str | None = None, limit: int = D
     return {**found, "limit": limit, "offset": offset}
 
 
-@router.get("/companies/{company_id}", dependencies=[Depends(limit_reads)])
-def get_company(company_id: str):
-    """Perfil da empresa, com as marcas e quantos produtos ela tem."""
-    return found_or_404(result_or_error(CompanyDB().get_full(company_id), 500), "Empresa não encontrada.")
+@router.get("/companies/{company}", dependencies=[Depends(limit_reads)])
+def get_company(company: str = COMPANY_PATH):
+    """Perfil da empresa pelo CNPJ (ou pelo id, para empresa sem CNPJ), com as marcas e quantos produtos ela tem."""
+    return result_or_error(CompanyDB().get_full(company_id_or_404(company)), 500)
 
 
-@router.get("/companies/{company_id}/products", dependencies=[Depends(limit_reads)])
-def list_company_products(company_id: str, limit: int = DEFAULT_PAGE_SIZE, offset: int = 0):
+@router.get("/companies/{company}/products", dependencies=[Depends(limit_reads)])
+def list_company_products(company: str = COMPANY_PATH, limit: int = DEFAULT_PAGE_SIZE, offset: int = 0):
     """Produtos da empresa: os ligados a ela e os sem empresa cuja marca ou fabricante é dela."""
     limit, offset = page_limits(limit, offset)
-    found = found_or_404(
-        result_or_error(CompanyDB().list_product_ids(company_id, limit, offset), 500), "Empresa não encontrada."
-    )
+    found = result_or_error(CompanyDB().list_product_ids(company_id_or_404(company), limit, offset), 500)
 
     products = ProductDB()
     items = [result_or_error(products.get_full(product_id), 500) for product_id in found["ids"]]
     return {"items": items, "total": found["total"], "limit": limit, "offset": offset}
 
 
-@router.get("/companies/{company_id}/revisions", dependencies=[Depends(limit_reads)])
-def list_company_revisions(company_id: str, limit: int = DEFAULT_PAGE_SIZE, offset: int = 0):
+@router.get("/companies/{company}/revisions", dependencies=[Depends(limit_reads)])
+def list_company_revisions(company: str = COMPANY_PATH, limit: int = DEFAULT_PAGE_SIZE, offset: int = 0):
     """Histórico de alterações do perfil, do mais novo para o mais antigo."""
     limit, offset = page_limits(limit, offset)
-    revisions = result_or_error(RevisionDB().list_for("company", company_id, limit, offset), 500)
+    revisions = result_or_error(RevisionDB().list_for("company", company_id_or_404(company), limit, offset), 500)
     return {**revisions, "limit": limit, "offset": offset}
 
 
@@ -85,9 +95,10 @@ def create_company(payload: CompanyInput, contributor=Depends(require_contributo
     return apply_new_company(None, payload, contributor)
 
 
-@router.put("/companies/{company_id}", dependencies=[Depends(limit_writes)])
-def update_company(company_id: str, payload: CompanyInput, contributor=Depends(require_contributor)):
+@router.put("/companies/{company}", dependencies=[Depends(limit_writes)])
+def update_company(company: str = COMPANY_PATH, *, payload: CompanyInput, contributor=Depends(require_contributor)):
     """Altera o perfil. Mande só o que quer mudar. Quem ainda é Iniciante recebe 202: vai para a votação."""
+    company_id = company_id_or_404(company)
     check_company_changes(company_id, payload)
     if not can_write_directly(contributor):
         return send_to_review("update_company", company_id, payload, contributor)

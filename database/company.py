@@ -3,6 +3,7 @@ from uuid import uuid4
 from database.category import now_text
 from database.database import Database
 from database.revision import revision_command
+from util.validation import clean_cnpj
 
 COMPANY_FIELDS = (
     "name", "legal_name", "cnpj", "description", "website", "phone", "address", "city", "uf", "source",
@@ -35,6 +36,21 @@ class CompanyDB(Database):
 
     def __init__(self):
         super().__init__()
+
+    def find_id(self, cnpj_or_id):
+        """
+        Id da empresa a partir do CNPJ (com ou sem pontuação, numérico ou alfanumérico) ou do próprio id.
+        (True, None) se não existe.
+
+            find_id("60.409.075/0001-52")  ->  (True, "f2f6cbab-...")
+            find_id("f2f6cbab-...")        ->  (True, "f2f6cbab-...")
+        """
+        cnpj = clean_cnpj(cnpj_or_id)
+        where = {"cnpj": cnpj} if cnpj else {"id": str(cnpj_or_id or "")}
+        ok, row = self.select("companies", ["id"], where=where, fetch="one")
+        if not ok:
+            return False, row
+        return True, row and row["id"]
 
     def get_full(self, company_id):
         """Empresa com as marcas e quantos produtos ela tem. (True, None) se não existe."""
@@ -71,8 +87,7 @@ class CompanyDB(Database):
                 name LIKE ? OR legal_name LIKE ? OR cnpj = ?
                 OR EXISTS (SELECT 1 FROM company_brands WHERE company_id = companies.id AND brand LIKE ?)
             )""")
-            only_digits = "".join(character for character in text if character.isdigit())
-            values.extend([f"%{text}%", f"%{text}%", only_digits or text, f"%{text}%"])
+            values.extend([f"%{text}%", f"%{text}%", clean_cnpj(text) or text, f"%{text}%"])
 
         if uf:
             conditions.append("uf = ?")
@@ -129,16 +144,16 @@ class CompanyDB(Database):
         """
         A empresa de um produto: a ligada direto a ele; se não tem, a dona da marca;
         se ninguém tem a marca, a que tem o nome do fabricante. (True, None) se nenhuma.
-        Devolve só {"id", "name", "linked_by"}, com linked_by = "company_id", "brand" ou "manufacturer".
+        Devolve só {"id", "name", "cnpj", "linked_by"}, com linked_by = "company_id", "brand" ou "manufacturer".
         """
         if company_id:
-            ok, company = self.select("companies", ["id", "name"], where={"id": company_id}, fetch="one")
+            ok, company = self.select("companies", ["id", "name", "cnpj"], where={"id": company_id}, fetch="one")
             if not ok or company is not None:
                 return ok, company and {**company, "linked_by": "company_id"}
 
         if brand:
             sql = """
-                SELECT companies.id, companies.name FROM company_brands
+                SELECT companies.id, companies.name, companies.cnpj FROM company_brands
                 JOIN companies ON companies.id = company_brands.company_id
                 WHERE company_brands.brand = ? COLLATE NOCASE
                 ORDER BY companies.created_at
@@ -148,7 +163,7 @@ class CompanyDB(Database):
                 return ok, company and {**company, "linked_by": "brand"}
 
         if manufacturer:
-            sql = "SELECT id, name FROM companies WHERE name = ? COLLATE NOCASE ORDER BY created_at"
+            sql = "SELECT id, name, cnpj FROM companies WHERE name = ? COLLATE NOCASE ORDER BY created_at"
             ok, company = self.run_sql(sql, (manufacturer,), fetch="one")
             if not ok or company is not None:
                 return ok, company and {**company, "linked_by": "manufacturer"}

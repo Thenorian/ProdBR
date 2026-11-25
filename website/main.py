@@ -339,7 +339,7 @@ def build_sitemap(address):
         status, companies = get_from_api(["companies"], {"limit": SITEMAP_PAGE_SIZE, "offset": offset})
         items = companies.get("items", []) if status == 200 else []
         for company in items:
-            company_address = escape(f"{address}/empresa/{company['id']}")
+            company_address = escape(f"{address}/empresa/{company['cnpj'] or company['id']}")
             entries.append(f"<url><loc>{company_address}</loc></url>")
         if len(items) < SITEMAP_PAGE_SIZE:
             break

@@ -9,7 +9,7 @@
 
   <div class="article-header">
     <h1 class="page-title">{{ company.name }}</h1>
-    <a class="button" href="/empresa/{{ company.id }}/editar">Editar</a>
+    <a class="button" href="{{ company | endereco_empresa }}/editar">Editar</a>
   </div>
 
   <div class="article">
@@ -26,7 +26,7 @@
         <dt>Cadastrada em</dt><dd>{{ company.created_at | data_br }}</dd>
         <dt>Atualizada em</dt><dd>{{ company.updated_at | data_br }}</dd>
       </dl>
-      <a class="infobox__api" href="/api/v1/companies/{{ company.id }}">Ver na API (JSON)</a>
+      <a class="infobox__api" href="/api/v1/companies/{{ company.cnpj or company.id }}">Ver na API (JSON)</a>
     </aside>
 
     <div class="article__body">
@@ -41,9 +41,9 @@
         {% endif %}
         {% if page_count > 1 %}
           <nav class="pagination" aria-label="Páginas">
-            {% if pagina > 1 %}<a class="button" href="/empresa/{{ company.id }}?pagina={{ pagina - 1 }}">Anterior</a>{% endif %}
+            {% if pagina > 1 %}<a class="button" href="{{ company | endereco_empresa }}?pagina={{ pagina - 1 }}">Anterior</a>{% endif %}
             <span class="pagination__current">Página {{ pagina }} de {{ page_count }}</span>
-            {% if pagina < page_count %}<a class="button" href="/empresa/{{ company.id }}?pagina={{ pagina + 1 }}">Próxima</a>{% endif %}
+            {% if pagina < page_count %}<a class="button" href="{{ company | endereco_empresa }}?pagina={{ pagina + 1 }}">Próxima</a>{% endif %}
           </nav>
         {% endif %}
       </section>

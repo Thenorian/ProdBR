@@ -59,6 +59,7 @@ form.addEventListener("submit", async (event) => {
     return;
   }
 
-  const savedCompanyId = isEditing ? companyId : result.data.id;
-  window.location.href = `/empresa/${encodeURIComponent(savedCompanyId)}`;
+  // A página da empresa fica no CNPJ quando ela tem um; sem CNPJ, no id.
+  const savedCompany = isEditing ? result.data.company : result.data;
+  window.location.href = `/empresa/${encodeURIComponent(savedCompany.cnpj || savedCompany.id)}`;
 });

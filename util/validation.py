@@ -97,31 +97,39 @@ def clean_category_path(category_path):
 
 CNPJ_FIRST_CHECK_WEIGHTS = (5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2)
 CNPJ_SECOND_CHECK_WEIGHTS = (6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2)
+CNPJ_FORMAT = re.compile(r"^[0-9A-Z]{12}[0-9]{2}$")
 WEBSITE_FORMAT = re.compile(r"^https?://[^\s<>\"']{3,240}$", re.IGNORECASE)
 PHONE_FORMAT = re.compile(r"^[0-9 ()+\-]{8,30}$")
 
 
 def clean_cnpj(cnpj):
     """
-    CNPJ só com os 14 dígitos, conferindo os dois dígitos verificadores.
+    CNPJ só com os 14 caracteres, conferindo os dois dígitos verificadores.
+    Aceita o CNPJ numérico e o alfanumérico (letras nas 12 primeiras posições, formato novo da Receita).
 
         clean_cnpj("11.222.333/0001-81")  ->  "11222333000181"
+        clean_cnpj("12.abc.345/01de-35")  ->  "12ABC34501DE35"
         clean_cnpj("11.222.333/0001-82")  ->  None  (dígito verificador errado)
     """
-    digits = "".join(character for character in str(cnpj or "") if character.isdigit())
-    if len(digits) != 14 or digits == digits[0] * 14:
+    characters = "".join(character for character in str(cnpj or "").upper() if character.isalnum())
+    if not CNPJ_FORMAT.match(characters) or characters == characters[0] * 14:
         return None
 
-    first_check_digit = cnpj_check_digit(digits[:12], CNPJ_FIRST_CHECK_WEIGHTS)
-    second_check_digit = cnpj_check_digit(digits[:12] + str(first_check_digit), CNPJ_SECOND_CHECK_WEIGHTS)
-    if digits[12:] != f"{first_check_digit}{second_check_digit}":
+    first_check_digit = cnpj_check_digit(characters[:12], CNPJ_FIRST_CHECK_WEIGHTS)
+    second_check_digit = cnpj_check_digit(characters[:12] + str(first_check_digit), CNPJ_SECOND_CHECK_WEIGHTS)
+    if characters[12:] != f"{first_check_digit}{second_check_digit}":
         return None
 
-    return digits
+    return characters
 
 
-def cnpj_check_digit(digits, weights):
-    remainder = sum(int(digit) * weight for digit, weight in zip(digits, weights)) % 11
+def cnpj_check_digit(characters, weights):
+    """
+    Cálculo da Receita: cada caractere vale o código dele menos 48 ("0" = 0, "9" = 9, "A" = 17, "Z" = 42),
+    o que mantém o cálculo antigo para o CNPJ só de números.
+    """
+    total = sum((ord(character) - 48) * weight for character, weight in zip(characters, weights))
+    remainder = total % 11
     return 0 if remainder < 2 else 11 - remainder
 
 

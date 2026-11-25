@@ -37,7 +37,7 @@ class ProductInput(BaseModel):
     manufacturer_code: str | None = Field(None, max_length=60, description="Código interno do fabricante. Ex: BPR6ES")
     company_id: str | None = Field(
         None, max_length=36,
-        description="Id da empresa dona do produto (GET /companies). Vazio = a empresa é achada pela marca ou fabricante.",
+        description="CNPJ (ou id) da empresa dona do produto (GET /companies). Vazio = a empresa é achada pela marca ou fabricante.",
     )
     description: str | None = Field(None, max_length=2000)
     category: str | None = Field(None, max_length=600, description='Caminho da categoria. Ex: "Bebidas > Cervejas"')
@@ -304,8 +304,9 @@ def clean_product_input(payload, sent_fields, contributor_username, create_categ
             errors.append("CEST inválido: use 7 dígitos.")
 
     if "company_id" in sent_fields:
-        data["company_id"] = text_or_none(payload.company_id)
-        if data["company_id"] and not result_or_error(CompanyDB().exists("companies", {"id": data["company_id"]}), 500):
+        cnpj_or_id = text_or_none(payload.company_id)
+        data["company_id"] = result_or_error(CompanyDB().find_id(cnpj_or_id), 500) if cnpj_or_id else None
+        if cnpj_or_id and data["company_id"] is None:
             errors.append("Empresa não encontrada (company_id).")
 
     barcodes = None
