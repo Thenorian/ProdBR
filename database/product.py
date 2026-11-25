@@ -5,6 +5,7 @@ from database.category import CategoryDB, now_text
 from database.company import CompanyDB
 from database.database import Database
 from database.fiscal import FiscalDB, summarize_fiscal_rules
+from database.ibpt import IbptDB
 from database.revision import revision_command
 
 PRODUCT_FIELDS = (
@@ -39,6 +40,7 @@ class ProductDB(Database):
         "fiscal_summary" junta as regras campo a campo (ICMS da UF + IPI/II oficiais): é o que o ERP usa.
         "company" é a empresa do produto: a ligada direto (company_id) ou, sem ela, a dona da marca
         ou a que tem o nome do fabricante (o campo linked_by diz qual foi).
+        "ibpt" é a carga aproximada da tabela do IBPT para o NCM na UF (só vem quando a uf é informada).
         """
         ok, product = self.select("products", where={"id": product_id}, fetch="one")
         if not ok or product is None:
@@ -76,6 +78,10 @@ class ProductDB(Database):
         if not ok:
             return False, company
 
+        ok, ibpt = IbptDB().get_for_product(product["ncm_code"], uf)
+        if not ok:
+            return False, ibpt
+
         return True, {
             "id": product["id"],
             "name": product["name"],
@@ -94,6 +100,7 @@ class ProductDB(Database):
             "price": price,
             "fiscal_summary": summarize_fiscal_rules(fiscal_rules, uf, tax_regime),
             "fiscal_rules": fiscal_rules,
+            "ibpt": ibpt,
             "source": product["source"],
             "created_at": product["created_at"],
             "updated_at": product["updated_at"],

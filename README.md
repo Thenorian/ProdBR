@@ -80,12 +80,20 @@ Toda vez que o app inicia (`database/setup.py`), sem nenhum passo manual:
 O app baixa uma vez por dia, sem cron e sem passo manual (`util/daily_update.py`):
 
 - a tabela NCM vigente do Portal Único Siscomex (JSON público);
-- o IPI da TIPI (Receita Federal) e o II da TEC (MDIC/Gecex).
+- o IPI da TIPI (Receita Federal) e o II da TEC (MDIC/Gecex);
+- a tabela do IBPT de cada UF (Lei 12.741/2012), baixada em JSON de um espelho
+  público (`IBPT_SOURCE_URL` no `.env` para trocar). Só a versão vigente fica no
+  banco, e ela só é regravada quando a versão muda.
 
 O IPI e o II viram uma regra fiscal nacional "Oficial: ..." por NCM. Quando a
 alíquota muda, a regra antiga é encerrada e nasce outra, então o histórico das
 alíquotas fica guardado. Regras da comunidade nunca são alteradas. NCM que sai
 da tabela fica com `in_force = 0`, nunca é apagado.
+
+A carga aproximada do IBPT sai em `GET /api/v1/ibpt/{NCM}?uf=SP` e no campo
+`ibpt` do produto e do NCM quando a consulta tem `?uf=`. Ela fica fora do
+arquivo de download da base, porque é quase 10 vezes maior que o resto e o
+próprio IBPT publica.
 
 Para rodar na hora: `python -m scripts.update_official_data`.
 Para desligar: `NCM_AUTO_UPDATE=false`.
